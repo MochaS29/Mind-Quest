@@ -340,7 +340,22 @@ struct SettingsView: View {
                     }
                     
                     Divider()
-                    
+
+                    Button(action: {
+                        gameManager.tutorialManager.resetAll()
+                    }) {
+                        HStack {
+                            Image(systemName: "questionmark.circle")
+                                .foregroundColor(.mindLabsPurple)
+                            Text("Reset Tutorials")
+                                .font(MindLabsTypography.body())
+                                .foregroundColor(.mindLabsText)
+                            Spacer()
+                        }
+                    }
+
+                    Divider()
+
                     Button(action: { showingResetAlert = true }) {
                         HStack {
                             Image(systemName: "trash.fill")

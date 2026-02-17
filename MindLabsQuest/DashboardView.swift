@@ -5,6 +5,7 @@ struct DashboardView: View {
     @State private var showNewQuestSheet = false
     @State private var showPredeterminedQuestSheet = false
     @State private var selectedCategory: TaskCategory? = nil
+    @State private var showSeasonalEvent = false
     
     var body: some View {
         NavigationView {
@@ -12,7 +13,12 @@ struct DashboardView: View {
                 VStack(spacing: 20) {
                     // Character Header
                     CharacterHeaderView()
-                    
+
+                    // Seasonal Event Banner
+                    if gameManager.seasonalEventManager.activeEvent != nil {
+                        SeasonalEventBanner(showSeasonalEvent: $showSeasonalEvent)
+                    }
+
                     // Daily Progress
                     DailyProgressCard()
 
@@ -55,6 +61,9 @@ struct DashboardView: View {
         }
         .sheet(isPresented: $showPredeterminedQuestSheet) {
             QuickAdventureSelectionView(selectedCategory: selectedCategory)
+        }
+        .sheet(isPresented: $showSeasonalEvent) {
+            SeasonalEventView()
         }
     }
 }
@@ -883,6 +892,69 @@ struct DailyChallengesCard: View {
                     }
                 }
             }
+        }
+    }
+}
+
+struct SeasonalEventBanner: View {
+    @EnvironmentObject var gameManager: GameManager
+    @Binding var showSeasonalEvent: Bool
+
+    var body: some View {
+        if let event = gameManager.seasonalEventManager.activeEvent {
+            Button(action: { showSeasonalEvent = true }) {
+                VStack(spacing: 10) {
+                    HStack {
+                        Text(event.icon)
+                            .font(.system(size: 30))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(event.name)
+                                .font(MindLabsTypography.headline())
+                                .foregroundColor(.white)
+                            Text(daysRemainingText(event: event))
+                                .font(MindLabsTypography.caption())
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+
+                    // Challenge progress summary
+                    let completed = gameManager.seasonalEventManager.completedChallengeCount
+                    let total = gameManager.seasonalEventManager.totalChallengeCount
+                    if total > 0 {
+                        HStack {
+                            Text("\(completed)/\(total) challenges complete")
+                                .font(MindLabsTypography.caption2())
+                                .foregroundColor(.white.opacity(0.8))
+                            Spacer()
+                        }
+                    }
+                }
+                .padding()
+                .background(
+                    LinearGradient(
+                        colors: [event.themeColor, event.themeColor.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .cornerRadius(15)
+                .mindLabsCardShadow()
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+    }
+
+    private func daysRemainingText(event: SeasonalEvent) -> String {
+        let remaining = event.daysRemaining
+        if remaining <= 0 {
+            return "Ending soon!"
+        } else if remaining == 1 {
+            return "1 day remaining"
+        } else {
+            return "\(remaining) days remaining"
         }
     }
 }

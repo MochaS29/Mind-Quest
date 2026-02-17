@@ -424,9 +424,8 @@ struct PomodoroTimerView: View {
         pauseTimer()
         
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-        impactFeedback.impactOccurred()
-        
+        HapticService.impact(.medium)
+
         switch currentPhase {
         case .focus:
             sessionCount += 1

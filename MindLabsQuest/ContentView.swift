@@ -15,6 +15,13 @@ struct ContentView: View {
             .mindLabsNavigationBar()
             .mindLabsTabBar()
             
+            // Tutorial overlay
+            if gameManager.tutorialManager.activeTutorial != nil {
+                TutorialOverlayView()
+                    .zIndex(80)
+                    .transition(.opacity)
+            }
+
             // Quest completion animation overlay
             if gameManager.showQuestCompletionAnimation, let quest = gameManager.completedQuest {
                 QuestCompletionView(

@@ -229,9 +229,8 @@ struct TimerView: View {
     
     func handleTimerComplete() {
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-        impactFeedback.impactOccurred()
-        
+        HapticService.impact(.medium)
+
         if isBreakTime {
             // Break is over, start new session
             isBreakTime = false

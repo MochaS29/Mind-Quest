@@ -250,6 +250,10 @@ struct Character: Codable {
     var equipment: EquipmentLoadout = EquipmentLoadout()
     var inventoryCapacity: Int = 50
 
+    // MARK: - Phase 5: Prestige & Cosmetics
+    var prestigeData: PrestigeData = PrestigeData()
+    var cosmeticLoadout: CosmeticLoadout = CosmeticLoadout()
+
     var modifier: (StatType) -> Int {
         return { stat in
             (self.stats[stat, default: 10] - 10) / 2

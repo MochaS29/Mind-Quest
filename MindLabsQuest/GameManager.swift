@@ -47,6 +47,11 @@ class GameManager: ObservableObject {
     let merchantManager = TravelingMerchantManager()
     let personalRecordsManager = PersonalRecordsManager()
 
+    // MARK: - Phase 5 Managers
+    let cosmeticsManager = CosmeticsManager()
+    let seasonalEventManager = SeasonalEventManager()
+    let tutorialManager = TutorialManager()
+
     enum AppView {
         case characterCreation
         case dashboard
@@ -74,6 +79,27 @@ class GameManager: ObservableObject {
         checkAndRefreshDailyQuests()
         checkAndUpdateStreak()
         loadStoryContent()
+
+        // Phase 5 init
+        seasonalEventManager.refreshEvent()
+        if let eventId = seasonalEventManager.activeEvent?.id {
+            seasonalEventManager.loadChallengeProgress(for: eventId)
+        }
+        cosmeticsManager.checkUnlocks(
+            character: character,
+            arenaRank: arenaManager.stats.rank,
+            totalBattlesWon: personalRecordsManager.records.totalBattlesWon,
+            totalDungeonClears: personalRecordsManager.records.totalDungeonClears
+        )
+        tutorialManager.checkTriggers(character: character)
+
+        // Achievement reward callback
+        achievementManager.onRewardClaimed = { [weak self] reward in
+            guard let self = self else { return }
+            self.character.gold += reward.gold
+            self.character.xp += reward.xp
+            self.saveData()
+        }
     }
 
     // MARK: - Character Creation
@@ -370,6 +396,10 @@ class GameManager: ObservableObject {
         // Personal records
         personalRecordsManager.recordQuestCompleted()
 
+        // Phase 5: Seasonal tracking
+        seasonalEventManager.recordQuestComplete()
+        seasonalEventManager.recordGoldEarned(quest.goldReward)
+
         awardStoryKey()
         saveData()
     }
@@ -414,6 +444,76 @@ class GameManager: ObservableObject {
 
         achievementManager.checkLevelAchievements(currentLevel: character.level)
         personalRecordsManager.recordLevelReached(character.level)
+
+        // Phase 5: Check cosmetic unlocks and tutorial on level up
+        cosmeticsManager.checkUnlocks(
+            character: character,
+            arenaRank: arenaManager.stats.rank,
+            totalBattlesWon: personalRecordsManager.records.totalBattlesWon,
+            totalDungeonClears: personalRecordsManager.records.totalDungeonClears
+        )
+        tutorialManager.checkTriggers(character: character)
+    }
+
+    // MARK: - Prestige System
+    func performPrestige(perkId: String) {
+        guard character.level >= 20 else { return }
+
+        // Record prestige
+        let record = PrestigeRecord(date: Date(), levelAtPrestige: character.level, perkChosen: perkId)
+        character.prestigeData.prestigeHistory.append(record)
+        character.prestigeData.totalPrestigeXP += character.xp + (character.level - 1) * 100
+        character.prestigeData.prestigeLevel += 1
+        character.prestigeData.activePerkIds.insert(perkId)
+
+        // Save what we keep
+        let savedPrestige = character.prestigeData
+        let savedInventory = character.inventory
+        let savedEquipment = character.equipment
+        let savedCosmetic = character.cosmeticLoadout
+        let savedSkills = character.skillProgress
+        let savedClass = character.characterClass
+        let savedBackground = character.background
+        let savedTraits = character.traits
+        let savedMotivation = character.motivation
+        let savedName = character.name
+        let savedAvatar = character.avatar
+        let savedDailyQuestIds = character.dailyQuestIds
+
+        // Reset character
+        character = Character()
+        character.name = savedName
+        character.characterClass = savedClass
+        character.background = savedBackground
+        character.traits = savedTraits
+        character.motivation = savedMotivation
+        character.avatar = savedAvatar
+        character.dailyQuestIds = savedDailyQuestIds
+        character.prestigeData = savedPrestige
+        character.inventory = savedInventory
+        character.equipment = savedEquipment
+        character.cosmeticLoadout = savedCosmetic
+        character.skillProgress = savedSkills
+        character.gold = 100 * (savedPrestige.prestigeLevel + 1)
+
+        // Re-apply class/background bonuses
+        if let cc = savedClass {
+            for (stat, bonus) in cc.statBonuses {
+                character.stats[stat, default: 10] += bonus
+            }
+        }
+        if let bg = savedBackground {
+            for (stat, bonus) in bg.bonuses {
+                character.stats[stat, default: 10] += bonus
+            }
+        }
+        character.applyTraitBonuses()
+
+        // Check prestige achievements
+        achievementManager.checkPrestigeAchievements(prestigeLevel: savedPrestige.prestigeLevel)
+
+        HapticService.notification(.success)
+        saveData()
     }
 
     // MARK: - Routine Management
@@ -524,6 +624,11 @@ class GameManager: ObservableObject {
         arenaManager.saveData()
         merchantManager.saveData()
         personalRecordsManager.saveData()
+
+        // Phase 5 managers
+        cosmeticsManager.saveData()
+        seasonalEventManager.saveData()
+        tutorialManager.saveData()
     }
 
     private func loadData() {
@@ -748,6 +853,11 @@ class GameManager: ObservableObject {
         achievementManager.resetAll()
         parentRewardManager.resetAll()
 
+        // Phase 5 resets
+        cosmeticsManager.resetAll()
+        seasonalEventManager.resetAll()
+        tutorialManager.resetAll()
+
         loadStoryContent()
     }
 
@@ -868,6 +978,22 @@ class GameManager: ObservableObject {
             // Personal records tracking
             personalRecordsManager.recordBattleWin(damageDealt: totalDmg, goldEarned: rewards.gold)
 
+            // Phase 5: Seasonal + cosmetic + battle achievement tracking
+            let enemyName = battleManager?.currentEncounter?.enemyName ?? ""
+            seasonalEventManager.recordBattleWin(enemyName: enemyName)
+            seasonalEventManager.recordGoldEarned(rewards.gold)
+            cosmeticsManager.checkUnlocks(
+                character: character,
+                arenaRank: arenaManager.stats.rank,
+                totalBattlesWon: personalRecordsManager.records.totalBattlesWon,
+                totalDungeonClears: personalRecordsManager.records.totalDungeonClears
+            )
+            achievementManager.checkBattleAchievements(
+                totalWins: personalRecordsManager.records.totalBattlesWon,
+                totalDamage: personalRecordsManager.records.totalDamageDealt,
+                highestHit: personalRecordsManager.records.highestSingleHit
+            )
+
             while character.xp >= character.xpToNext {
                 levelUp()
             }
@@ -899,6 +1025,16 @@ class GameManager: ObservableObject {
         // Personal records
         personalRecordsManager.recordArenaResult(victory: victory, newRating: arenaManager.stats.rating)
         personalRecordsManager.checkArenaDominator(arenaWinStreak: arenaManager.stats.currentWinStreak)
+
+        // Phase 5: Seasonal + arena achievement tracking
+        if victory {
+            seasonalEventManager.recordArenaWin()
+            seasonalEventManager.recordWinStreak(arenaManager.stats.currentWinStreak)
+        }
+        achievementManager.checkArenaAchievements(
+            rating: arenaManager.stats.rating,
+            winStreak: arenaManager.stats.currentWinStreak
+        )
 
         battleManager?.endBattle()
         saveData()

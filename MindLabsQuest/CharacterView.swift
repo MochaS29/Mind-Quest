@@ -11,7 +11,9 @@ struct CharacterView: View {
     @State private var showADHDTools = false
     @State private var showSkillTree = false
     @State private var showPersonalRecords = false
-    
+    @State private var showCosmetics = false
+    @State private var showPrestige = false
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -33,6 +35,12 @@ struct CharacterView: View {
 
                     // Personal Records
                     PersonalRecordsCard(showPersonalRecords: $showPersonalRecords)
+
+                    // Cosmetics
+                    CosmeticsCard(showCosmetics: $showCosmetics)
+
+                    // Prestige
+                    PrestigeCard(showPrestige: $showPrestige)
 
                     // Class Abilities
                     ClassAbilitiesCard()
@@ -98,6 +106,14 @@ struct CharacterView: View {
             }
             .sheet(isPresented: $showPersonalRecords) {
                 PersonalRecordsView()
+                    .environmentObject(gameManager)
+            }
+            .sheet(isPresented: $showCosmetics) {
+                CosmeticsView()
+                    .environmentObject(gameManager)
+            }
+            .sheet(isPresented: $showPrestige) {
+                PrestigeView()
                     .environmentObject(gameManager)
             }
         }
@@ -1117,6 +1133,124 @@ struct SkillTreeCard: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .background(LinearGradient.mindLabsPrimary)
+                        .cornerRadius(8)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Cosmetics Card
+struct CosmeticsCard: View {
+    @EnvironmentObject var gameManager: GameManager
+    @Binding var showCosmetics: Bool
+
+    var body: some View {
+        MindLabsCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "paintbrush.fill")
+                        .foregroundColor(.purple)
+                    Text("Cosmetics")
+                        .font(MindLabsTypography.headline())
+                        .foregroundColor(.mindLabsText)
+                    Spacer()
+                }
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(gameManager.cosmeticsManager.unlockedCount)/\(gameManager.cosmeticsManager.totalCount) unlocked")
+                            .font(MindLabsTypography.caption())
+                            .foregroundColor(.mindLabsTextSecondary)
+
+                        if let title = gameManager.cosmeticsManager.equippedTitle {
+                            Text("Title: \(title.displayText ?? title.name)")
+                                .font(MindLabsTypography.caption2())
+                                .foregroundColor(.mindLabsPurple)
+                        }
+                    }
+
+                    Spacer()
+
+                    Button(action: { showCosmetics = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "paintbrush.pointed.fill")
+                            Text("Customize")
+                        }
+                        .font(MindLabsTypography.caption())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(LinearGradient(colors: [.purple, .pink], startPoint: .leading, endPoint: .trailing))
+                        .cornerRadius(8)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Prestige Card
+struct PrestigeCard: View {
+    @EnvironmentObject var gameManager: GameManager
+    @Binding var showPrestige: Bool
+
+    var prestigeLevel: Int {
+        gameManager.character.prestigeData.prestigeLevel
+    }
+
+    var body: some View {
+        MindLabsCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "star.circle.fill")
+                        .foregroundColor(.orange)
+                    Text("Prestige")
+                        .font(MindLabsTypography.headline())
+                        .foregroundColor(.mindLabsText)
+                    Spacer()
+
+                    if prestigeLevel > 0 {
+                        HStack(spacing: 2) {
+                            ForEach(0..<prestigeLevel, id: \.self) { _ in
+                                Image(systemName: "star.fill")
+                                    .foregroundColor(.orange)
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                }
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if prestigeLevel > 0 {
+                            Text("Prestige Level \(prestigeLevel)")
+                                .font(MindLabsTypography.caption())
+                                .foregroundColor(.orange)
+                        } else if gameManager.character.level >= 20 {
+                            Text("Ready to Prestige!")
+                                .font(MindLabsTypography.caption())
+                                .foregroundColor(.mindLabsSuccess)
+                        } else {
+                            Text("Reach Level 20 to unlock")
+                                .font(MindLabsTypography.caption())
+                                .foregroundColor(.mindLabsTextSecondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    Button(action: { showPrestige = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "star.fill")
+                            Text("View")
+                        }
+                        .font(MindLabsTypography.caption())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(LinearGradient(colors: [.purple, .orange], startPoint: .leading, endPoint: .trailing))
                         .cornerRadius(8)
                     }
                 }
