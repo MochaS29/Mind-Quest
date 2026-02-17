@@ -42,6 +42,11 @@ class GameManager: ObservableObject {
     let craftingManager = CraftingManager()
     let dungeonRunManager = DungeonRunManager()
 
+    // MARK: - Phase 4 Managers
+    let arenaManager = ArenaManager()
+    let merchantManager = TravelingMerchantManager()
+    let personalRecordsManager = PersonalRecordsManager()
+
     enum AppView {
         case characterCreation
         case dashboard
@@ -64,6 +69,8 @@ class GameManager: ObservableObject {
         loadData()
         energyManager.syncFromCharacter(character)
         dailyChallengeManager.refreshIfNeeded(playerLevel: character.level)
+        merchantManager.refreshIfNeeded(playerLevel: character.level)
+        personalRecordsManager.updatePlayDays()
         checkAndRefreshDailyQuests()
         checkAndUpdateStreak()
         loadStoryContent()
@@ -360,6 +367,9 @@ class GameManager: ObservableObject {
         dailyChallengeManager.recordQuestComplete()
         dailyChallengeManager.recordGoldEarned(quest.goldReward)
 
+        // Personal records
+        personalRecordsManager.recordQuestCompleted()
+
         awardStoryKey()
         saveData()
     }
@@ -403,6 +413,7 @@ class GameManager: ObservableObject {
         showLevelUpAnimation = true
 
         achievementManager.checkLevelAchievements(currentLevel: character.level)
+        personalRecordsManager.recordLevelReached(character.level)
     }
 
     // MARK: - Routine Management
@@ -508,6 +519,11 @@ class GameManager: ObservableObject {
         }
         UserDefaults.standard.set(isCharacterCreated, forKey: "isCharacterCreated")
         UserDefaults.standard.set(lastStreakCheck, forKey: "lastStreakCheck")
+
+        // Phase 4 managers
+        arenaManager.saveData()
+        merchantManager.saveData()
+        personalRecordsManager.saveData()
     }
 
     private func loadData() {
@@ -844,18 +860,49 @@ class GameManager: ObservableObject {
             dailyChallengeManager.recordBattleWin()
             dailyChallengeManager.recordKill()
             dailyChallengeManager.recordGoldEarned(rewards.gold)
-            if let totalDmg = battleManager?.battleState?.totalDamageDealt {
+            let totalDmg = battleManager?.battleState?.totalDamageDealt ?? 0
+            if totalDmg > 0 {
                 dailyChallengeManager.recordDamage(totalDmg)
             }
+
+            // Personal records tracking
+            personalRecordsManager.recordBattleWin(damageDealt: totalDmg, goldEarned: rewards.gold)
 
             while character.xp >= character.xpToNext {
                 levelUp()
             }
 
             saveData()
+        } else {
+            personalRecordsManager.recordBattleLoss()
         }
 
         battleManager?.endBattle()
+    }
+
+    // MARK: - Arena Battle
+    @discardableResult
+    func completeArenaBattle(victory: Bool, opponent: ArenaOpponent) -> ArenaMatchResult {
+        // Collect XP/gold from BattleRewards (same as regular battle)
+        if victory, let rewards = battleManager?.collectRewards() {
+            character.xp += rewards.xp
+            character.gold += rewards.gold
+
+            while character.xp >= character.xpToNext {
+                levelUp()
+            }
+        }
+
+        // Arena-specific: rating, tokens, stats
+        let result = arenaManager.completeArenaMatch(victory: victory, opponent: opponent)
+
+        // Personal records
+        personalRecordsManager.recordArenaResult(victory: victory, newRating: arenaManager.stats.rating)
+        personalRecordsManager.checkArenaDominator(arenaWinStreak: arenaManager.stats.currentWinStreak)
+
+        battleManager?.endBattle()
+        saveData()
+        return result
     }
 
     func getChapter(_ chapterId: String) -> StoryChapter? {

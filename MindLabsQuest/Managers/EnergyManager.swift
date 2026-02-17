@@ -56,6 +56,11 @@ class EnergyManager: ObservableObject {
         return currentEnergy >= 1
     }
 
+    var canStartArena: Bool {
+        recalculateEnergy()
+        return currentEnergy >= 2
+    }
+
     @discardableResult
     func spendEnergy(_ amount: Int = 1) -> Bool {
         recalculateEnergy()

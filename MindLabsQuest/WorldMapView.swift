@@ -8,6 +8,8 @@ struct WorldMapView: View {
     @State private var chapterToUnlock: StoryChapter?
     @State private var showQuickBattle = false
     @State private var showDungeons = false
+    @State private var showArena = false
+    @State private var showMerchant = false
 
     var body: some View {
         NavigationView {
@@ -181,6 +183,110 @@ struct WorldMapView: View {
                                 }
                                 .buttonStyle(PlainButtonStyle())
                                 .padding(.horizontal, 20)
+
+                                // Arena Button
+                                Button {
+                                    showArena = true
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "person.2.fill")
+                                            .font(.title2)
+                                            .foregroundColor(.red)
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("PvP Arena")
+                                                .font(.headline)
+                                                .foregroundColor(.white)
+                                            Text("Battle opponents, climb the ranks!")
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+
+                                        Spacer()
+
+                                        HStack(spacing: 4) {
+                                            Text(gameManager.arenaManager.stats.rank.emoji)
+                                            Text("\(gameManager.arenaManager.stats.rating)")
+                                                .font(.subheadline.bold())
+                                                .foregroundColor(.white)
+                                        }
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.red.opacity(0.2))
+                                        )
+                                    }
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [Color.red.opacity(0.5), Color.orange.opacity(0.3)],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 16)
+                                                    .stroke(Color.red.opacity(0.4), lineWidth: 1)
+                                            )
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .padding(.horizontal, 20)
+
+                                // Traveling Merchant Button (only when present)
+                                if gameManager.merchantManager.state.isPresent {
+                                    Button {
+                                        showMerchant = true
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            Image(systemName: "cart.fill")
+                                                .font(.title2)
+                                                .foregroundColor(.teal)
+
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("Traveling Merchant")
+                                                    .font(.headline)
+                                                    .foregroundColor(.white)
+                                                Text(gameManager.merchantManager.state.merchantName)
+                                                    .font(.caption)
+                                                    .foregroundColor(.gray)
+                                            }
+
+                                            Spacer()
+
+                                            let daysLeft = gameManager.merchantManager.state.daysUntilDeparture
+                                            Text("Departs in \(daysLeft)d")
+                                                .font(.caption.bold())
+                                                .foregroundColor(.teal)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(Color.teal.opacity(0.2))
+                                                )
+                                        }
+                                        .padding()
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .fill(
+                                                    LinearGradient(
+                                                        colors: [Color.teal.opacity(0.5), Color.green.opacity(0.3)],
+                                                        startPoint: .leading,
+                                                        endPoint: .trailing
+                                                    )
+                                                )
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 16)
+                                                        .stroke(Color.teal.opacity(0.4), lineWidth: 1)
+                                                )
+                                        )
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    .padding(.horizontal, 20)
+                                }
                             }
                             .padding(.top, 20)
                         }
@@ -210,6 +316,14 @@ struct WorldMapView: View {
         }
         .sheet(isPresented: $showDungeons) {
             DungeonListView()
+                .environmentObject(gameManager)
+        }
+        .fullScreenCover(isPresented: $showArena) {
+            ArenaView()
+                .environmentObject(gameManager)
+        }
+        .sheet(isPresented: $showMerchant) {
+            TravelingMerchantView()
                 .environmentObject(gameManager)
         }
         .alert("Unlock Chapter?", isPresented: $showUnlockConfirmation) {

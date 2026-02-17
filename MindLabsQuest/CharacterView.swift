@@ -10,6 +10,7 @@ struct CharacterView: View {
     @State private var showNotificationSettings = false
     @State private var showADHDTools = false
     @State private var showSkillTree = false
+    @State private var showPersonalRecords = false
     
     var body: some View {
         NavigationView {
@@ -29,6 +30,9 @@ struct CharacterView: View {
 
                     // Skill Tree
                     SkillTreeCard(showSkillTree: $showSkillTree)
+
+                    // Personal Records
+                    PersonalRecordsCard(showPersonalRecords: $showPersonalRecords)
 
                     // Class Abilities
                     ClassAbilitiesCard()
@@ -91,6 +95,58 @@ struct CharacterView: View {
             }
             .sheet(isPresented: $showSkillTree) {
                 SkillTreeView()
+            }
+            .sheet(isPresented: $showPersonalRecords) {
+                PersonalRecordsView()
+                    .environmentObject(gameManager)
+            }
+        }
+    }
+}
+
+// MARK: - Personal Records Card
+struct PersonalRecordsCard: View {
+    @EnvironmentObject var gameManager: GameManager
+    @Binding var showPersonalRecords: Bool
+
+    var body: some View {
+        MindLabsCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "trophy.fill")
+                        .foregroundColor(.orange)
+                    Text("Personal Records & Badges")
+                        .font(MindLabsTypography.headline())
+                        .foregroundColor(.mindLabsText)
+
+                    Spacer()
+                }
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(gameManager.personalRecordsManager.records.totalBattlesWon) battles won")
+                            .font(MindLabsTypography.caption())
+                            .foregroundColor(.mindLabsTextSecondary)
+                        Text("\(gameManager.personalRecordsManager.unlockedBadgeCount)/\(gameManager.personalRecordsManager.badges.count) badges unlocked")
+                            .font(MindLabsTypography.caption2())
+                            .foregroundColor(.mindLabsTextSecondary)
+                    }
+
+                    Spacer()
+
+                    Button(action: { showPersonalRecords = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "list.star")
+                            Text("View All")
+                        }
+                        .font(MindLabsTypography.caption())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(LinearGradient(colors: [.orange, .red], startPoint: .leading, endPoint: .trailing))
+                        .cornerRadius(8)
+                    }
+                }
             }
         }
     }
