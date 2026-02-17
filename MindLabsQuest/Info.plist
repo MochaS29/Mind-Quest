@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIBackgroundModes</key>
+	<array/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Mind Labs Quest syncs with your calendar to help you manage academic events and deadlines as gamified quests.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Mind Labs Quest can create reminders to help you stay on track with your quests and routines.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.mindlabs.quest</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>com.mindlabs.quest</string>
+		</dict>
+	</array>
+</dict>
+</plist>
