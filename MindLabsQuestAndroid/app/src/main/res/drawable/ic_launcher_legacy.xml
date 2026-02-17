@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="192dp"
+    android:height="192dp"
+    android:viewportWidth="192"
+    android:viewportHeight="192">
+  <!-- Background -->
+  <path
+      android:fillColor="#6B46C1"
+      android:pathData="M0,0h192v192h-192z"/>
+  <!-- Brain icon -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M96,48c-26.51,0 -48,21.49 -48,48s21.49,48 48,48s48,-21.49 48,-48S122.51,48 96,48zM96,58c7.2,0 13.6,2.4 19.2,6.4c-1.6,3.2 -4.8,4.8 -8,4.8c-4.8,0 -8,-3.2 -12.8,-3.2s-8,3.2 -12.8,3.2c-3.2,0 -6.4,-1.6 -8,-4.8C80,60.4 88.8,58 96,58zM76.8,78.4c4.8,0 9.6,4.8 9.6,9.6s-4.8,9.6 -9.6,9.6s-9.6,-4.8 -9.6,-9.6S72,78.4 76.8,78.4zM115.2,78.4c4.8,0 9.6,4.8 9.6,9.6s-4.8,9.6 -9.6,9.6s-9.6,-4.8 -9.6,-9.6S110.4,78.4 115.2,78.4zM96,108c9.6,0 16,6.4 16,12.8c0,3.2 -3.2,6.4 -6.4,6.4c-4.8,0 -8,-3.2 -9.6,-3.2s-4.8,3.2 -9.6,3.2c-3.2,0 -6.4,-3.2 -6.4,-6.4C80,114.4 86.4,108 96,108z"/>
+</vector>

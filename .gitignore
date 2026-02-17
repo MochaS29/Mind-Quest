@@ -13,6 +13,17 @@ build/
 Pods/
 .build/
 
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+
 # Misc
 *.swp
+*.swo
 *~
+*.log

@@ -1,0 +1,32 @@
+{
+  "sprint_duration_days": 14,
+  "work_hours_per_day": 6,
+  "platforms": ["ios", "android", "web"],
+  "team_members": ["developer"],
+  "code_review_threshold": 100,
+  "auto_assign_tasks": true,
+  "ai_model": "claude-3-5-sonnet-20241022",
+  "max_tokens": 2000,
+  "temperature": 0.7,
+  "analysis_schedule": {
+    "daily_standup": "09:00",
+    "weekly_review": "friday",
+    "sprint_planning": "biweekly"
+  },
+  "notifications": {
+    "enabled": true,
+    "channels": ["console", "file"],
+    "critical_alerts": true
+  },
+  "code_quality": {
+    "min_test_coverage": 70,
+    "max_complexity": 10,
+    "enforce_linting": true
+  },
+  "feature_flags": {
+    "auto_pr_creation": false,
+    "auto_merge": false,
+    "ai_code_review": true,
+    "smart_task_assignment": true
+  }
+}

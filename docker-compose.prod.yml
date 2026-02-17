@@ -1,0 +1,114 @@
+# Production Docker Compose configuration
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+version: '3.8'
+
+services:
+  # Project Manager Agent - Production mode
+  pm-agent:
+    restart: always
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # React Native - Production build
+  react-native-prod:
+    build:
+      context: ./MindQuestApp
+      dockerfile: Dockerfile.prod
+    container_name: mindquest-web
+    ports:
+      - "3000:80"
+    networks:
+      - mindquest-network
+    restart: always
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Disable development services
+  react-native-dev:
+    profiles:
+      - never
+
+  android-build:
+    profiles:
+      - build-only
+
+  # Production database configuration
+  postgres:
+    environment:
+      - POSTGRES_DB=mindquest_prod
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Redis with persistence
+  redis:
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Nginx with SSL
+  nginx:
+    volumes:
+      - ./docker/nginx/nginx-prod.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+      - ./docker/certbot/conf:/etc/letsencrypt:ro
+      - ./docker/certbot/www:/var/www/certbot:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+
+  # Certbot for SSL certificates
+  certbot:
+    image: certbot/certbot
+    container_name: mindquest-certbot
+    volumes:
+      - ./docker/certbot/conf:/etc/letsencrypt
+      - ./docker/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+  # Backup service
+  backup:
+    image: postgres:15-alpine
+    container_name: mindquest-backup
+    environment:
+      - PGPASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    command: >
+      sh -c "while true; do
+        pg_dump -h postgres -U mindquest mindquest_prod > /backups/backup_$$(date +%Y%m%d_%H%M%S).sql
+        find /backups -type f -mtime +7 -delete
+        sleep 86400
+      done"
+    depends_on:
+      - postgres
+    networks:
+      - mindquest-network
+
+secrets:
+  db_password:
+    file: ./docker/secrets/db_password.txt

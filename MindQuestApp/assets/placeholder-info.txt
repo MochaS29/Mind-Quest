@@ -1,0 +1,22 @@
+Asset Requirements for MindQuest App
+=====================================
+
+Required Images:
+1. icon.png (1024x1024px) - Main app icon
+2. splash.png (1284x2778px) - Splash screen for app launch
+3. adaptive-icon.png (1024x1024px) - Android adaptive icon
+4. favicon.png (48x48px) - Web browser favicon
+
+Suggested Design:
+- Use the wizard emoji (🧙‍♂️) as the main element
+- Purple gradient background (#7C3AED to #4C1D95)
+- Include "MindQuest" text for splash screen
+
+You can create these using:
+- Canva (free online tool)
+- Figma (free design tool)
+- Any image editor
+
+Or use temporary solid color placeholders:
+- Create solid purple squares of the required sizes
+- The app will still run without these, but you'll see warnings

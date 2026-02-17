@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mocha's MindLab Inc. - Innovative Health & Wellness Apps</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #F9F7F4 0%, #E8E2DB 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        h1 {
+            color: #7B68EE;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .tagline {
+            color: #4A9B9B;
+            font-size: 1.3em;
+            margin-bottom: 30px;
+        }
+        
+        .apps-section {
+            margin-bottom: 60px;
+        }
+        
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+        
+        .app-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .app-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(123, 104, 238, 0.2);
+        }
+        
+        .app-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+        }
+        
+        .app-health { background: linear-gradient(135deg, #7B68EE, #9B88FF); }
+        .app-insights { background: linear-gradient(135deg, #4A9B9B, #6AB5B5); }
+        .app-quest { background: linear-gradient(135deg, #7FB069, #9FD089); }
+        
+        .app-name {
+            color: #333;
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .app-description {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .app-features {
+            list-style: none;
+            margin-bottom: 20px;
+        }
+        
+        .app-features li {
+            padding: 5px 0;
+            color: #555;
+        }
+        
+        .app-features li:before {
+            content: "✓ ";
+            color: #7FB069;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        .links-section {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .links-section h2 {
+            color: #7B68EE;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+        
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .link-button {
+            background: linear-gradient(135deg, #7B68EE, #9B88FF);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .link-button:hover {
+            transform: scale(1.05);
+        }
+        
+        .link-button.secondary {
+            background: linear-gradient(135deg, #4A9B9B, #6AB5B5);
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 60px;
+            padding-top: 30px;
+            border-top: 2px solid rgba(123, 104, 238, 0.2);
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+            
+            .apps-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Mocha's MindLab Inc.</h1>
+            <p class="tagline">Innovative Health & Wellness Solutions for Modern Living</p>
+        </header>
+
+        <section class="apps-section">
+            <div class="apps-grid">
+                <div class="app-card">
+                    <div class="app-icon app-health">
+                        <span style="color: white;">🍎</span>
+                    </div>
+                    <h3 class="app-name">ML Health</h3>
+                    <p class="app-description">Your comprehensive nutrition and wellness tracking companion.</p>
+                    <ul class="app-features">
+                        <li>Food diary with barcode scanning</li>
+                        <li>USDA database integration</li>
+                        <li>Meal planning & supplements</li>
+                        <li>Achievement system</li>
+                    </ul>
+                </div>
+
+                <div class="app-card">
+                    <div class="app-icon app-insights">
+                        <span style="color: white;">🔬</span>
+                    </div>
+                    <h3 class="app-name">ML Insights</h3>
+                    <p class="app-description">Lab results tracking and health monitoring made simple.</p>
+                    <ul class="app-features">
+                        <li>Lab results visualization</li>
+                        <li>Medication tracking</li>
+                        <li>Symptom monitoring</li>
+                        <li>Health trends analysis</li>
+                    </ul>
+                </div>
+
+                <div class="app-card">
+                    <div class="app-icon app-quest">
+                        <span style="color: white;">🎮</span>
+                    </div>
+                    <h3 class="app-name">ML Quest</h3>
+                    <p class="app-description">Gamified wellness journey for mental health and ADHD support.</p>
+                    <ul class="app-features">
+                        <li>Interactive quests & challenges</li>
+                        <li>Focus timer & productivity tools</li>
+                        <li>Achievement rewards</li>
+                        <li>Community support</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="links-section">
+            <h2>Important Links</h2>
+            <div class="links-grid">
+                <a href="privacy.html" class="link-button">Privacy Policy</a>
+                <a href="mailto:support@mochasmindlab.com" class="link-button secondary">Support</a>
+                <a href="mailto:safety@mochasmindlab.com" class="link-button secondary">Safety</a>
+                <a href="https://github.com/mochasmindlab" class="link-button">GitHub</a>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>&copy; 2025 Mocha's MindLab Inc. All rights reserved.</p>
+            <p>Vancouver, British Columbia, Canada</p>
+        </footer>
+    </div>
+</body>
+</html>

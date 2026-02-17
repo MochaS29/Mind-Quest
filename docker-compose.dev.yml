@@ -1,0 +1,69 @@
+# Development-specific Docker Compose configuration
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  # Project Manager Agent - Development mode
+  pm-agent:
+    build:
+      context: ./mindquest-pm-agent
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    volumes:
+      # Mount source code for hot reloading
+      - ./mindquest-pm-agent:/app
+      - /app/__pycache__
+    command: python scripts/run_agent.py daily --debug
+
+  # React Native - Development with hot reload
+  react-native-dev:
+    environment:
+      - EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
+      - WATCHPACK_POLLING=true
+    volumes:
+      # Ensure node_modules is not overwritten
+      - ./MindQuestApp:/app
+      - /app/node_modules
+      - /app/.expo
+    stdin_open: true
+    tty: true
+
+  # Android Build - Skip in development
+  android-build:
+    profiles:
+      - android-only
+    command: echo "Skipping Android build in dev mode"
+
+  # Development database with sample data
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=mindquest_dev
+    volumes:
+      - ./docker/dev-data:/docker-entrypoint-initdb.d
+
+  # Adminer for database management
+  adminer:
+    image: adminer
+    container_name: mindquest-adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - mindquest-network
+    depends_on:
+      - postgres
+
+  # Mailhog for email testing
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mindquest-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - mindquest-network
