@@ -6,6 +6,7 @@ struct InventoryView: View {
     @State private var selectedItem: Item? = nil
     @State private var showItemDetail = false
     @State private var sortByRarity = true
+    @State private var showCrafting = false
 
     var filteredInventory: [InventoryEntry] {
         var entries = gameManager.character.inventory
@@ -64,12 +65,25 @@ struct InventoryView: View {
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { showCrafting = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "hammer.fill")
+                            Text("Craft")
+                                .font(MindLabsTypography.caption())
+                        }
+                        .foregroundColor(.mindLabsPurple)
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { sortByRarity.toggle() }) {
                         Image(systemName: sortByRarity ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                             .foregroundColor(.mindLabsPurple)
                     }
                 }
+            }
+            .sheet(isPresented: $showCrafting) {
+                CraftingView()
             }
         }
     }

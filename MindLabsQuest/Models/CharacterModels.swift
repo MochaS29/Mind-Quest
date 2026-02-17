@@ -242,6 +242,9 @@ struct Character: Codable {
     var uniqueClassesPlayed: Set<String> = []
     var questCategoriesCompleted: Set<String> = []
 
+    // MARK: - Skill System
+    var skillProgress: SkillProgress = SkillProgress()
+
     // MARK: - Inventory & Equipment
     var inventory: [InventoryEntry] = []
     var equipment: EquipmentLoadout = EquipmentLoadout()
@@ -253,11 +256,28 @@ struct Character: Codable {
         }
     }
 
-    // MARK: - Effective Stats (base + equipment)
+    // MARK: - Skill Bonuses
+    var skillBonuses: SkillBonusSummary {
+        guard let charClass = characterClass else { return SkillBonusSummary() }
+        let allSkills = SkillTreeDatabase.skillTree(for: charClass)
+        var summary = SkillBonusSummary()
+        for skill in allSkills where skillProgress.unlockedSkillIds.contains(skill.id) {
+            for effect in skill.effects {
+                summary.apply(effect)
+            }
+        }
+        return summary
+    }
+
+    // MARK: - Effective Stats (base + equipment + skills)
     var effectiveStats: [StatType: Int] {
         var result = stats
         let equipmentMods = equipment.totalStatModifiers()
         for (stat, bonus) in equipmentMods {
+            result[stat, default: 10] += bonus
+        }
+        let skillBoosts = skillBonuses.statBoosts
+        for (stat, bonus) in skillBoosts {
             result[stat, default: 10] += bonus
         }
         return result

@@ -7,6 +7,7 @@ struct WorldMapView: View {
     @State private var showUnlockConfirmation = false
     @State private var chapterToUnlock: StoryChapter?
     @State private var showQuickBattle = false
+    @State private var showDungeons = false
 
     var body: some View {
         NavigationView {
@@ -126,6 +127,60 @@ struct WorldMapView: View {
                                 }
                                 .buttonStyle(PlainButtonStyle())
                                 .padding(.horizontal, 20)
+
+                                // Dungeons Button
+                                Button {
+                                    showDungeons = true
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "building.columns.fill")
+                                            .font(.title2)
+                                            .foregroundColor(.orange)
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Dungeons")
+                                                .font(.headline)
+                                                .foregroundColor(.white)
+                                            Text("Multi-floor challenges await!")
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+
+                                        Spacer()
+
+                                        if gameManager.dungeonRunManager.isRunActive {
+                                            Text("IN PROGRESS")
+                                                .font(.caption2.bold())
+                                                .foregroundColor(.orange)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(Color.orange.opacity(0.2))
+                                                )
+                                        } else {
+                                            Image(systemName: "chevron.right")
+                                                .foregroundColor(.gray)
+                                        }
+                                    }
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [Color.orange.opacity(0.5), Color.red.opacity(0.3)],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 16)
+                                                    .stroke(Color.orange.opacity(0.4), lineWidth: 1)
+                                            )
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .padding(.horizontal, 20)
                             }
                             .padding(.top, 20)
                         }
@@ -151,6 +206,10 @@ struct WorldMapView: View {
         }
         .fullScreenCover(isPresented: $showQuickBattle) {
             QuickBattleView()
+                .environmentObject(gameManager)
+        }
+        .sheet(isPresented: $showDungeons) {
+            DungeonListView()
                 .environmentObject(gameManager)
         }
         .alert("Unlock Chapter?", isPresented: $showUnlockConfirmation) {

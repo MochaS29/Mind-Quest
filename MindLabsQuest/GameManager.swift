@@ -37,6 +37,11 @@ class GameManager: ObservableObject {
     let shopManager = ShopManager()
     let encounterManager = RandomEncounterManager()
 
+    // MARK: - Phase 3 Managers
+    let dailyChallengeManager = DailyChallengeManager()
+    let craftingManager = CraftingManager()
+    let dungeonRunManager = DungeonRunManager()
+
     enum AppView {
         case characterCreation
         case dashboard
@@ -58,6 +63,7 @@ class GameManager: ObservableObject {
     init() {
         loadData()
         energyManager.syncFromCharacter(character)
+        dailyChallengeManager.refreshIfNeeded(playerLevel: character.level)
         checkAndRefreshDailyQuests()
         checkAndUpdateStreak()
         loadStoryContent()
@@ -350,6 +356,10 @@ class GameManager: ObservableObject {
 
         energyManager.earnEnergyFromQuest()
 
+        // Daily challenge tracking
+        dailyChallengeManager.recordQuestComplete()
+        dailyChallengeManager.recordGoldEarned(quest.goldReward)
+
         awardStoryKey()
         saveData()
     }
@@ -384,6 +394,10 @@ class GameManager: ObservableObject {
         character.maxHealth += 10
         character.health = character.maxHealth
         character.gold += character.level * 10
+
+        // Award skill points on level up
+        character.skillProgress.skillPoints += 2
+        character.skillProgress.totalSkillPointsEarned += 2
 
         newLevel = character.level
         showLevelUpAnimation = true
@@ -758,9 +772,13 @@ class GameManager: ObservableObject {
             return false
         }
 
-        if let previousChapterId = chapter.unlockRequirements.previousChapter {
-            guard storyProgress.completedChapters.contains(previousChapterId) else {
-                return false
+        let required = chapter.unlockRequirements.previousChapters
+        if !required.isEmpty {
+            switch chapter.unlockRequirements.unlockMode {
+            case .any:
+                guard required.contains(where: { storyProgress.completedChapters.contains($0) }) else { return false }
+            case .all:
+                guard required.allSatisfy({ storyProgress.completedChapters.contains($0) }) else { return false }
             }
         }
 
@@ -805,7 +823,7 @@ class GameManager: ObservableObject {
         }
         battleManager?.updateCharacter(character)
         battleManager?.onItemUsed = { [weak self] itemId in
-            // Sync inventory after item used in battle
+            self?.dailyChallengeManager.recordItemUsed()
             self?.saveData()
         }
         return battleManager!
@@ -820,6 +838,14 @@ class GameManager: ObservableObject {
             // Award loot drops from the encounter
             if let encounter = battleManager?.currentEncounter {
                 awardBattleLoot(from: encounter)
+            }
+
+            // Daily challenge tracking
+            dailyChallengeManager.recordBattleWin()
+            dailyChallengeManager.recordKill()
+            dailyChallengeManager.recordGoldEarned(rewards.gold)
+            if let totalDmg = battleManager?.battleState?.totalDamageDealt {
+                dailyChallengeManager.recordDamage(totalDmg)
             }
 
             while character.xp >= character.xpToNext {
@@ -850,9 +876,13 @@ class GameManager: ObservableObject {
             return false
         }
 
-        if let previousChapterId = chapter.unlockRequirements.previousChapter {
-            if !storyProgress.completedChapters.contains(previousChapterId) {
-                return false
+        let required = chapter.unlockRequirements.previousChapters
+        if !required.isEmpty {
+            switch chapter.unlockRequirements.unlockMode {
+            case .any:
+                guard required.contains(where: { storyProgress.completedChapters.contains($0) }) else { return false }
+            case .all:
+                guard required.allSatisfy({ storyProgress.completedChapters.contains($0) }) else { return false }
             }
         }
 

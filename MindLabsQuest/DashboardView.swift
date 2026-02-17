@@ -15,7 +15,10 @@ struct DashboardView: View {
                     
                     // Daily Progress
                     DailyProgressCard()
-                    
+
+                    // Daily Challenges
+                    DailyChallengesCard()
+
                     // Weekly Progress
                     WeeklyProgressCard()
                     
@@ -768,6 +771,118 @@ struct AnalyticsQuickAccessCard: View {
                 .padding(.vertical, 5)
             }
             .buttonStyle(PlainButtonStyle())
+        }
+    }
+}
+
+struct DailyChallengesCard: View {
+    @EnvironmentObject var gameManager: GameManager
+
+    var body: some View {
+        let challenges = gameManager.dailyChallengeManager.activeChallenges
+        if !challenges.isEmpty {
+            MindLabsCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "flame.fill")
+                            .foregroundColor(.orange)
+                        Text("Daily Challenges")
+                            .font(MindLabsTypography.headline())
+                            .foregroundColor(.mindLabsText)
+                        Spacer()
+                        Text("Resets in \(gameManager.dailyChallengeManager.formattedTimeUntilRefresh)")
+                            .font(MindLabsTypography.caption2())
+                            .foregroundColor(.mindLabsTextSecondary)
+                    }
+
+                    ForEach(challenges) { challenge in
+                        VStack(spacing: 6) {
+                            HStack {
+                                Image(systemName: challenge.icon)
+                                    .foregroundColor(challenge.isClaimed ? .gray : (challenge.isCompleted ? .mindLabsSuccess : .mindLabsPurple))
+                                    .font(.caption)
+                                Text(challenge.title)
+                                    .font(MindLabsTypography.subheadline())
+                                    .foregroundColor(.mindLabsText)
+                                Spacer()
+                                if challenge.isClaimed {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.mindLabsSuccess)
+                                } else if challenge.isCompleted {
+                                    Button("Claim") {
+                                        if let rewards = gameManager.dailyChallengeManager.claimReward(challenge.id) {
+                                            gameManager.character.xp += rewards.xp
+                                            gameManager.character.gold += rewards.gold
+                                            while gameManager.character.xp >= gameManager.character.xpToNext {
+                                                gameManager.character.xp -= gameManager.character.xpToNext
+                                                gameManager.character.level += 1
+                                                gameManager.character.xpToNext = gameManager.character.level * 100
+                                                gameManager.character.maxHealth += 10
+                                                gameManager.character.health = gameManager.character.maxHealth
+                                            }
+                                            gameManager.saveData()
+                                        }
+                                    }
+                                    .font(MindLabsTypography.caption())
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.mindLabsSuccess)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
+                                } else {
+                                    Text("\(challenge.progress)/\(challenge.target)")
+                                        .font(MindLabsTypography.caption())
+                                        .foregroundColor(.mindLabsTextSecondary)
+                                }
+                            }
+
+                            // Progress bar
+                            GeometryReader { geometry in
+                                ZStack(alignment: .leading) {
+                                    Rectangle()
+                                        .fill(Color.mindLabsBorder.opacity(0.3))
+                                        .frame(height: 6)
+                                        .cornerRadius(3)
+
+                                    Rectangle()
+                                        .fill(challenge.isClaimed
+                                            ? Color.gray
+                                            : (challenge.isCompleted
+                                                ? Color.mindLabsSuccess
+                                                : Color.mindLabsPurple))
+                                        .frame(width: geometry.size.width * min(1.0, CGFloat(challenge.progress) / CGFloat(max(1, challenge.target))), height: 6)
+                                        .cornerRadius(3)
+                                }
+                            }
+                            .frame(height: 6)
+
+                            HStack {
+                                Text(challenge.description)
+                                    .font(MindLabsTypography.caption2())
+                                    .foregroundColor(.mindLabsTextSecondary)
+                                Spacer()
+                                HStack(spacing: 4) {
+                                    Image(systemName: "star.fill")
+                                        .font(.system(size: 8))
+                                        .foregroundColor(.blue)
+                                    Text("\(challenge.rewards.xp)XP")
+                                        .font(MindLabsTypography.caption2())
+                                        .foregroundColor(.blue)
+                                    Image(systemName: "bitcoinsign.circle.fill")
+                                        .font(.system(size: 8))
+                                        .foregroundColor(.yellow)
+                                    Text("\(challenge.rewards.gold)G")
+                                        .font(MindLabsTypography.caption2())
+                                        .foregroundColor(.yellow)
+                                }
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.mindLabsCard.opacity(challenge.isClaimed ? 0.5 : 1.0))
+                        .cornerRadius(8)
+                    }
+                }
+            }
         }
     }
 }

@@ -9,6 +9,7 @@ struct CharacterView: View {
     @State private var showTimeAnalyticsSheet = false
     @State private var showNotificationSettings = false
     @State private var showADHDTools = false
+    @State private var showSkillTree = false
     
     var body: some View {
         NavigationView {
@@ -25,7 +26,10 @@ struct CharacterView: View {
                     
                     // Equipment
                     EquipmentCard()
-                    
+
+                    // Skill Tree
+                    SkillTreeCard(showSkillTree: $showSkillTree)
+
                     // Class Abilities
                     ClassAbilitiesCard()
                     
@@ -84,6 +88,9 @@ struct CharacterView: View {
             }
             .sheet(isPresented: $showADHDTools) {
                 ADHDToolsHub()
+            }
+            .sheet(isPresented: $showSkillTree) {
+                SkillTreeView()
             }
         }
     }
@@ -1005,6 +1012,60 @@ struct ADHDToolsCard: View {
         .padding()
         .background(Color.mindLabsCard)
         .cornerRadius(15)
+    }
+}
+
+// MARK: - Skill Tree Card
+struct SkillTreeCard: View {
+    @EnvironmentObject var gameManager: GameManager
+    @Binding var showSkillTree: Bool
+
+    var body: some View {
+        MindLabsCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Skill Tree")
+                        .font(MindLabsTypography.headline())
+                        .foregroundColor(.mindLabsText)
+                    Spacer()
+                    if gameManager.character.skillProgress.skillPoints > 0 {
+                        Text("\(gameManager.character.skillProgress.skillPoints) pts")
+                            .font(MindLabsTypography.caption())
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.mindLabsWarning)
+                            .cornerRadius(10)
+                    }
+                }
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(gameManager.character.skillProgress.unlockedSkillIds.count) skills unlocked")
+                            .font(MindLabsTypography.caption())
+                            .foregroundColor(.mindLabsTextSecondary)
+                        Text("Level up to earn skill points")
+                            .font(MindLabsTypography.caption2())
+                            .foregroundColor(.mindLabsTextSecondary)
+                    }
+
+                    Spacer()
+
+                    Button(action: { showSkillTree = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.triangle.branch")
+                            Text("View Tree")
+                        }
+                        .font(MindLabsTypography.caption())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(LinearGradient.mindLabsPrimary)
+                        .cornerRadius(8)
+                    }
+                }
+            }
+        }
     }
 }
 

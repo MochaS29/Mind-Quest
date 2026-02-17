@@ -29,6 +29,9 @@ class BattleState: ObservableObject {
     @Published var showPlayerDamage: Bool = false
     @Published var showEnemyDamage: Bool = false
 
+    // Combat tracking
+    @Published var totalDamageDealt: Int = 0
+
     // Status effects
     @Published var playerStatusEffects: [StatusEffect] = []
     @Published var enemyStatusEffects: [StatusEffect] = []
@@ -198,6 +201,34 @@ enum PlayerAction: Equatable {
     case useItem(UUID)
 }
 
+// MARK: - Combat Context (built from skill bonuses at battle start)
+struct CombatContext {
+    var critChance: Double = 0          // 0.0–1.0
+    var dodgeChance: Double = 0         // 0.0–1.0
+    var damageMultiplier: Double = 1.0  // 1.0 = no bonus
+    var defenseMultiplier: Double = 1.0
+    var lifestealPercent: Double = 0
+    var counterattackChance: Double = 0
+    var specialCooldownReduction: Int = 0
+    var statusResistances: [StatusEffectType: Double] = [:]
+
+    init() {}
+
+    init(from character: Character) {
+        let bonuses = character.skillBonuses
+        critChance = Double(bonuses.critChance) / 100.0
+        dodgeChance = Double(bonuses.dodgeChance) / 100.0
+        damageMultiplier = 1.0 + Double(bonuses.damageMultiplier) / 100.0
+        defenseMultiplier = 1.0 + Double(bonuses.defenseMultiplier) / 100.0
+        lifestealPercent = Double(bonuses.lifestealPercent) / 100.0
+        counterattackChance = Double(bonuses.counterattackPercent) / 100.0
+        specialCooldownReduction = bonuses.specialCooldownReduction
+        for (type, percent) in bonuses.statusResistances {
+            statusResistances[type] = Double(percent) / 100.0
+        }
+    }
+}
+
 // MARK: - Battle Manager
 class BattleManager: ObservableObject {
     @Published var battleState: BattleState?
@@ -205,6 +236,7 @@ class BattleManager: ObservableObject {
     @Published var isAnimating: Bool = false
 
     private var character: Character
+    private var combatContext = CombatContext()
     var onItemUsed: ((UUID) -> Void)?
 
     init(character: Character) {
@@ -218,6 +250,7 @@ class BattleManager: ObservableObject {
     // MARK: - Start Battle
     func startBattle(encounter: BattleEncounter) {
         currentEncounter = encounter
+        combatContext = CombatContext(from: character)
         battleState = BattleState(player: character, encounter: encounter)
     }
 
@@ -279,15 +312,38 @@ class BattleManager: ObservableObject {
 
         let baseDamage = state.playerAttack + state.playerAttackModifier
         let defense = state.enemyIsEvading ? state.enemyDefense * 2 : state.enemyDefense
-        let damage = calculateDamage(attack: baseDamage, defense: defense)
+        var damage = calculateDamage(attack: baseDamage, defense: defense)
+
+        // Apply damage multiplier from skills
+        damage = Int(Double(damage) * combatContext.damageMultiplier)
+
+        // Crit roll
+        let isCrit = Double.random(in: 0...1) < combatContext.critChance
+        if isCrit { damage = Int(Double(damage) * 1.5) }
 
         if state.enemyIsEvading && Double.random(in: 0...1) < 0.5 {
             state.addLogEntry("Your attack missed the evading enemy!", type: .playerAction)
         } else {
             state.enemyHP = max(0, state.enemyHP - damage)
             state.lastDamageDealt = damage
+            state.totalDamageDealt += damage
             state.showEnemyDamage = true
-            state.addLogEntry("You attack for \(damage) damage!", type: .playerAction)
+
+            if isCrit {
+                state.addLogEntry("CRITICAL HIT! You attack for \(damage) damage!", type: .playerAction)
+            } else {
+                state.addLogEntry("You attack for \(damage) damage!", type: .playerAction)
+            }
+
+            // Lifesteal
+            if combatContext.lifestealPercent > 0 {
+                let healAmount = max(1, Int(Double(damage) * combatContext.lifestealPercent))
+                let actualHeal = min(healAmount, state.playerMaxHP - state.playerHP)
+                if actualHeal > 0 {
+                    state.playerHP += actualHeal
+                    state.addLogEntry("Lifesteal restores \(actualHeal) HP!", type: .heal)
+                }
+            }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 state.showEnemyDamage = false
@@ -311,13 +367,36 @@ class BattleManager: ObservableObject {
 
         let baseDamage = (state.playerAttack + state.playerAttackModifier) * 2
         let defense = state.enemyIsEvading ? state.enemyDefense * 2 : state.enemyDefense
-        let damage = calculateDamage(attack: baseDamage, defense: defense)
+        var damage = calculateDamage(attack: baseDamage, defense: defense)
+
+        // Apply damage multiplier from skills
+        damage = Int(Double(damage) * combatContext.damageMultiplier)
+
+        // Crit roll
+        let isCrit = Double.random(in: 0...1) < combatContext.critChance
+        if isCrit { damage = Int(Double(damage) * 1.5) }
 
         state.enemyHP = max(0, state.enemyHP - damage)
         state.lastDamageDealt = damage
+        state.totalDamageDealt += damage
         state.showEnemyDamage = true
         state.playerSpecialReady = false
-        state.addLogEntry("You unleash a powerful special attack for \(damage) damage!", type: .playerAction)
+
+        if isCrit {
+            state.addLogEntry("CRITICAL special attack for \(damage) damage!", type: .playerAction)
+        } else {
+            state.addLogEntry("You unleash a powerful special attack for \(damage) damage!", type: .playerAction)
+        }
+
+        // Lifesteal
+        if combatContext.lifestealPercent > 0 {
+            let healAmount = max(1, Int(Double(damage) * combatContext.lifestealPercent))
+            let actualHeal = min(healAmount, state.playerMaxHP - state.playerHP)
+            if actualHeal > 0 {
+                state.playerHP += actualHeal
+                state.addLogEntry("Lifesteal restores \(actualHeal) HP!", type: .heal)
+            }
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             state.showEnemyDamage = false
@@ -351,12 +430,20 @@ class BattleManager: ObservableObject {
 
         let ability = chooseEnemyAbility()
 
+        // Dodge roll from skills
+        if Double.random(in: 0...1) < combatContext.dodgeChance {
+            state.addLogEntry("You dodge the attack!", type: .playerAction)
+            finishEnemyTurn()
+            return
+        }
+
         if let ability = ability {
             if ability.damage == 0 {
                 state.enemyIsEvading = true
                 state.addLogEntry("\(state.enemyName) uses \(ability.name)! \(ability.description)", type: .enemyAction)
             } else {
-                let effectiveDefense = state.playerIsDefending ? state.playerDefense * 2 : state.playerDefense
+                var effectiveDefense = state.playerIsDefending ? state.playerDefense * 2 : state.playerDefense
+                effectiveDefense = Int(Double(effectiveDefense) * combatContext.defenseMultiplier)
                 let attackPower = ability.damage + state.enemyAttackModifier
                 let damage = calculateDamage(attack: attackPower, defense: effectiveDefense)
 
@@ -369,16 +456,22 @@ class BattleManager: ObservableObject {
                     state.showPlayerDamage = false
                 }
 
-                // Apply status effect from ability
+                // Apply status effect from ability (check resistance)
                 if let statusEffect = ability.statusEffect {
-                    var effect = statusEffect
-                    effect.id = UUID()
-                    state.playerStatusEffects.append(effect)
-                    state.addLogEntry("\(statusEffect.type.icon) You are afflicted with \(statusEffect.type.rawValue)!", type: .enemyAction)
+                    let resistance = combatContext.statusResistances[statusEffect.type] ?? 0
+                    if Double.random(in: 0...1) >= resistance {
+                        var effect = statusEffect
+                        effect.id = UUID()
+                        state.playerStatusEffects.append(effect)
+                        state.addLogEntry("\(statusEffect.type.icon) You are afflicted with \(statusEffect.type.rawValue)!", type: .enemyAction)
+                    } else {
+                        state.addLogEntry("You resist \(statusEffect.type.rawValue)!", type: .playerAction)
+                    }
                 }
             }
         } else {
-            let effectiveDefense = state.playerIsDefending ? state.playerDefense * 2 : state.playerDefense
+            var effectiveDefense = state.playerIsDefending ? state.playerDefense * 2 : state.playerDefense
+            effectiveDefense = Int(Double(effectiveDefense) * combatContext.defenseMultiplier)
             let attackPower = state.enemyAttack + state.enemyAttackModifier
             let damage = calculateDamage(attack: attackPower, defense: effectiveDefense)
 
@@ -408,7 +501,9 @@ class BattleManager: ObservableObject {
             state.playerIsDefending = false
             self?.isAnimating = false
 
-            if !state.playerSpecialReady && state.battleLog.count % 6 == 0 {
+            // Special cooldown: base every 6 entries, reduced by skill bonus
+            let cooldownThreshold = max(2, 6 - (self?.combatContext.specialCooldownReduction ?? 0))
+            if !state.playerSpecialReady && state.battleLog.count % cooldownThreshold == 0 {
                 state.playerSpecialReady = true
                 state.addLogEntry("Special attack is ready!", type: .system)
             }
@@ -510,6 +605,7 @@ class BattleManager: ObservableObject {
             state.lastDamageDealt = actualDamage
             state.showEnemyDamage = true
             result.battleDamage = actualDamage
+            state.totalDamageDealt += actualDamage
             state.addLogEntry("Used \(item.name): dealt \(actualDamage) damage!", type: .playerAction)
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

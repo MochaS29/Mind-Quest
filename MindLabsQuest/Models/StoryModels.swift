@@ -14,9 +14,55 @@ struct StoryChapter: Identifiable, Codable {
     var nextChapterOptions: [String]
 }
 
+enum ChapterUnlockMode: String, Codable {
+    case any   // Complete any one of the prerequisites
+    case all   // Complete all prerequisites
+}
+
 struct UnlockRequirements: Codable {
     var tasksRequired: Int
-    var previousChapter: String?
+    var previousChapters: [String]
+    var unlockMode: ChapterUnlockMode
+
+    // Convenience init for single chapter (backward compat)
+    init(tasksRequired: Int, previousChapter: String?) {
+        self.tasksRequired = tasksRequired
+        self.previousChapters = previousChapter.map { [$0] } ?? []
+        self.unlockMode = .any
+    }
+
+    // Full init for branching chapters
+    init(tasksRequired: Int, previousChapters: [String], unlockMode: ChapterUnlockMode = .any) {
+        self.tasksRequired = tasksRequired
+        self.previousChapters = previousChapters
+        self.unlockMode = unlockMode
+    }
+
+    // Custom decoder for backward compatibility with old single-chapter format
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        tasksRequired = try container.decode(Int.self, forKey: .tasksRequired)
+        unlockMode = try container.decodeIfPresent(ChapterUnlockMode.self, forKey: .unlockMode) ?? .any
+
+        if let chapters = try? container.decode([String].self, forKey: .previousChapters) {
+            previousChapters = chapters
+        } else if let single = try? container.decode(String.self, forKey: .previousChapter) {
+            previousChapters = [single]
+        } else {
+            previousChapters = []
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(tasksRequired, forKey: .tasksRequired)
+        try container.encode(previousChapters, forKey: .previousChapters)
+        try container.encode(unlockMode, forKey: .unlockMode)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case tasksRequired, previousChapters, previousChapter, unlockMode
+    }
 }
 
 struct ChapterRewards: Codable {

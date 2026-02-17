@@ -46,9 +46,13 @@ class StoryManager: ObservableObject {
             return false
         }
 
-        if let previousChapterId = chapter.unlockRequirements.previousChapter {
-            guard storyProgress.completedChapters.contains(previousChapterId) else {
-                return false
+        let required = chapter.unlockRequirements.previousChapters
+        if !required.isEmpty {
+            switch chapter.unlockRequirements.unlockMode {
+            case .any:
+                guard required.contains(where: { storyProgress.completedChapters.contains($0) }) else { return false }
+            case .all:
+                guard required.allSatisfy({ storyProgress.completedChapters.contains($0) }) else { return false }
             }
         }
 
@@ -121,8 +125,14 @@ class StoryManager: ObservableObject {
         guard let chapter = getChapter(chapterId) else { return false }
         if chapter.isUnlocked { return false }
         if storyProgress.storyKeys < chapter.unlockRequirements.tasksRequired { return false }
-        if let previousChapterId = chapter.unlockRequirements.previousChapter {
-            if !storyProgress.completedChapters.contains(previousChapterId) { return false }
+        let required = chapter.unlockRequirements.previousChapters
+        if !required.isEmpty {
+            switch chapter.unlockRequirements.unlockMode {
+            case .any:
+                guard required.contains(where: { storyProgress.completedChapters.contains($0) }) else { return false }
+            case .all:
+                guard required.allSatisfy({ storyProgress.completedChapters.contains($0) }) else { return false }
+            }
         }
         return true
     }
