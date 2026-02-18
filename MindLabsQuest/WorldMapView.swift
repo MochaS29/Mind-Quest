@@ -3,7 +3,6 @@ import SwiftUI
 struct WorldMapView: View {
     @EnvironmentObject var gameManager: GameManager
     @State private var selectedChapter: StoryChapter?
-    @State private var showChapterIntro = false
     @State private var showUnlockConfirmation = false
     @State private var chapterToUnlock: StoryChapter?
     @State private var showQuickBattle = false
@@ -304,11 +303,9 @@ struct WorldMapView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $showChapterIntro) {
-            if let chapter = selectedChapter {
-                ChapterIntroView(chapter: chapter)
-                    .environmentObject(gameManager)
-            }
+        .fullScreenCover(item: $selectedChapter) { chapter in
+            ChapterIntroView(chapter: chapter)
+                .environmentObject(gameManager)
         }
         .fullScreenCover(isPresented: $showQuickBattle) {
             QuickBattleView()
@@ -389,7 +386,6 @@ struct WorldMapView: View {
     private func handleChapterTap(_ chapter: StoryChapter) {
         if chapter.isUnlocked {
             selectedChapter = chapter
-            showChapterIntro = true
         }
     }
 }

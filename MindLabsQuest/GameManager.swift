@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 class GameManager: ObservableObject {
     let achievementManager = AchievementManager()
@@ -27,10 +28,14 @@ class GameManager: ObservableObject {
     @Published var isInStoryMode = false
     @Published var showStoryKeyEarned = false
     @Published var battleManager: BattleManager?
+    private var battleManagerCancellable: AnyCancellable?
 
     // MARK: - Inventory Properties
     @Published var lastLootResult: LootResult?
     @Published var showLootAnimation = false
+
+    // MARK: - Phase 5 UI State
+    @Published var tutorialActive = false
 
     // MARK: - Phase 2 Managers
     let energyManager = EnergyManager()
@@ -92,6 +97,7 @@ class GameManager: ObservableObject {
             totalDungeonClears: personalRecordsManager.records.totalDungeonClears
         )
         tutorialManager.checkTriggers(character: character)
+        tutorialActive = tutorialManager.activeTutorial != nil
 
         // Achievement reward callback
         achievementManager.onRewardClaimed = { [weak self] reward in
@@ -453,6 +459,21 @@ class GameManager: ObservableObject {
             totalDungeonClears: personalRecordsManager.records.totalDungeonClears
         )
         tutorialManager.checkTriggers(character: character)
+    }
+
+    // MARK: - Tutorial Helpers
+    func advanceTutorialStep() {
+        tutorialManager.advanceStep()
+        let isActive = tutorialManager.activeTutorial != nil
+        tutorialActive = isActive
+        if isActive {
+            objectWillChange.send()
+        }
+    }
+
+    func skipCurrentTutorial() {
+        tutorialManager.skipTutorial()
+        tutorialActive = false
     }
 
     // MARK: - Prestige System
@@ -857,6 +878,7 @@ class GameManager: ObservableObject {
         cosmeticsManager.resetAll()
         seasonalEventManager.resetAll()
         tutorialManager.resetAll()
+        tutorialActive = false
 
         loadStoryContent()
     }
@@ -945,7 +967,14 @@ class GameManager: ObservableObject {
 
     func getBattleManager() -> BattleManager {
         if battleManager == nil {
-            battleManager = BattleManager(character: character)
+            let bm = BattleManager(character: character)
+            // Forward BattleManager changes so BattleView updates
+            battleManagerCancellable = bm.objectWillChange.sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.objectWillChange.send()
+                }
+            }
+            battleManager = bm
         }
         battleManager?.updateCharacter(character)
         battleManager?.onItemUsed = { [weak self] itemId in

@@ -287,6 +287,22 @@ struct Character: Codable {
         return result
     }
 
+    // MARK: - Combat Abilities (unlocked via skill tree)
+    var availableCombatAbilities: [CombatAbility] {
+        guard let charClass = characterClass else { return [] }
+        let allAbilities = CombatAbilityDatabase.abilities(for: charClass)
+        let allSkills = SkillTreeDatabase.skillTree(for: charClass)
+
+        return allAbilities.filter { ability in
+            if ability.unlockTier == 0 { return true }
+            // Check if the skill at this tier in this branch is unlocked
+            guard let requiredSkill = allSkills.first(where: {
+                $0.branch == ability.branch && $0.tier == ability.unlockTier
+            }) else { return false }
+            return skillProgress.unlockedSkillIds.contains(requiredSkill.id)
+        }
+    }
+
     var attackPower: Int {
         let str = effectiveStats[.strength] ?? 10
         let dex = effectiveStats[.dexterity] ?? 10

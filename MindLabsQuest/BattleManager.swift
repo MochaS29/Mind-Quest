@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 // MARK: - Battle State
 class BattleState: ObservableObject {
@@ -8,7 +9,8 @@ class BattleState: ObservableObject {
     @Published var playerAttack: Int
     @Published var playerDefense: Int
     @Published var playerIsDefending: Bool = false
-    @Published var playerSpecialReady: Bool = true
+    @Published var playerDamageReduction: Double = 0 // from shield abilities
+    @Published var playerReflectPercent: Double = 0 // from reflect abilities
 
     @Published var enemyHP: Int
     @Published var enemyMaxHP: Int
@@ -31,6 +33,12 @@ class BattleState: ObservableObject {
 
     // Combat tracking
     @Published var totalDamageDealt: Int = 0
+
+    // Ability cooldowns: [abilityId: turnsRemaining]
+    @Published var abilityCooldowns: [String: Int] = [:]
+
+    // Last used ability (for UI effects)
+    @Published var lastAbilityUsed: CombatAbility?
 
     // Status effects
     @Published var playerStatusEffects: [StatusEffect] = []
@@ -61,6 +69,22 @@ class BattleState: ObservableObject {
         battleLog.append(entry)
         if battleLog.count > 5 {
             battleLog.removeFirst()
+        }
+    }
+
+    func isAbilityReady(_ ability: CombatAbility) -> Bool {
+        (abilityCooldowns[ability.id] ?? 0) <= 0
+    }
+
+    func cooldownRemaining(for ability: CombatAbility) -> Int {
+        abilityCooldowns[ability.id] ?? 0
+    }
+
+    func decrementCooldowns() {
+        for key in abilityCooldowns.keys {
+            if abilityCooldowns[key]! > 0 {
+                abilityCooldowns[key]! -= 1
+            }
         }
     }
 
@@ -195,9 +219,7 @@ enum BattleResult {
 
 // MARK: - Player Action
 enum PlayerAction: Equatable {
-    case attack
-    case defend
-    case special
+    case ability(String) // ability ID
     case useItem(UUID)
 }
 
@@ -237,6 +259,7 @@ class BattleManager: ObservableObject {
 
     private var character: Character
     private var combatContext = CombatContext()
+    private var stateCancellable: AnyCancellable?
     var onItemUsed: ((UUID) -> Void)?
 
     init(character: Character) {
@@ -251,7 +274,14 @@ class BattleManager: ObservableObject {
     func startBattle(encounter: BattleEncounter) {
         currentEncounter = encounter
         combatContext = CombatContext(from: character)
-        battleState = BattleState(player: character, encounter: encounter)
+        let state = BattleState(player: character, encounter: encounter)
+        // Forward BattleState changes so views update
+        stateCancellable = state.objectWillChange.sink { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.objectWillChange.send()
+            }
+        }
+        battleState = state
     }
 
     // MARK: - Player Actions
@@ -262,8 +292,8 @@ class BattleManager: ObservableObject {
         if state.isPlayerStunned {
             state.addLogEntry("You are stunned and cannot act!", type: .system)
             state.isPlayerTurn = false
-            // Process status effects
             state.processPlayerStatusEffects()
+            state.decrementCooldowns()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
                 self?.performEnemyTurn()
             }
@@ -271,19 +301,21 @@ class BattleManager: ObservableObject {
         }
 
         isAnimating = true
-        state.playerIsDefending = false
 
         switch action {
-        case .attack:
-            performPlayerAttack()
-        case .defend:
-            performPlayerDefend()
-        case .special:
-            performPlayerSpecial()
+        case .ability(let abilityId):
+            guard let ability = findAbility(abilityId) else {
+                isAnimating = false
+                return
+            }
+            guard state.isAbilityReady(ability) else {
+                isAnimating = false
+                return
+            }
+            performAbility(ability)
         case .useItem(let itemId):
             let result = useItemInBattle(itemId)
             if result == nil {
-                // Item use failed, don't end turn
                 isAnimating = false
                 return
             }
@@ -291,6 +323,9 @@ class BattleManager: ObservableObject {
 
         // Process player status effects at end of turn
         state.processPlayerStatusEffects()
+
+        // Decrement all ability cooldowns
+        state.decrementCooldowns()
 
         if let state = battleState, state.enemyHP <= 0 {
             handleVictory()
@@ -307,10 +342,40 @@ class BattleManager: ObservableObject {
         }
     }
 
-    private func performPlayerAttack() {
+    private func findAbility(_ abilityId: String) -> CombatAbility? {
+        guard let charClass = character.characterClass else { return nil }
+        return CombatAbilityDatabase.abilities(for: charClass).first { $0.id == abilityId }
+    }
+
+    // MARK: - Perform Ability
+    private func performAbility(_ ability: CombatAbility) {
         guard let state = battleState else { return }
 
-        let baseDamage = state.playerAttack + state.playerAttackModifier
+        state.lastAbilityUsed = ability
+
+        // Reset defense state from previous turn
+        state.playerIsDefending = false
+        state.playerDamageReduction = 0
+        state.playerReflectPercent = 0
+
+        if ability.isDefensive {
+            performDefensiveAbility(ability)
+        } else {
+            performOffensiveAbility(ability)
+        }
+
+        // Set cooldown (if any)
+        if ability.cooldown > 0 {
+            state.abilityCooldowns[ability.id] = ability.cooldown
+        }
+
+        state.isPlayerTurn = false
+    }
+
+    private func performOffensiveAbility(_ ability: CombatAbility) {
+        guard let state = battleState else { return }
+
+        let baseDamage = Int(Double(state.playerAttack + state.playerAttackModifier) * ability.damageMultiplier)
         let defense = state.enemyIsEvading ? state.enemyDefense * 2 : state.enemyDefense
         var damage = calculateDamage(attack: baseDamage, defense: defense)
 
@@ -322,7 +387,7 @@ class BattleManager: ObservableObject {
         if isCrit { damage = Int(Double(damage) * 1.5) }
 
         if state.enemyIsEvading && Double.random(in: 0...1) < 0.5 {
-            state.addLogEntry("Your attack missed the evading enemy!", type: .playerAction)
+            state.addLogEntry("\(ability.name) missed the evading enemy!", type: .playerAction)
         } else {
             state.enemyHP = max(0, state.enemyHP - damage)
             state.lastDamageDealt = damage
@@ -330,18 +395,22 @@ class BattleManager: ObservableObject {
             state.showEnemyDamage = true
 
             if isCrit {
-                state.addLogEntry("CRITICAL HIT! You attack for \(damage) damage!", type: .playerAction)
+                state.addLogEntry("CRITICAL \(ability.name) for \(damage) damage!", type: .playerAction)
             } else {
-                state.addLogEntry("You attack for \(damage) damage!", type: .playerAction)
+                state.addLogEntry("\(ability.name) deals \(damage) damage!", type: .playerAction)
             }
 
-            // Lifesteal
-            if combatContext.lifestealPercent > 0 {
-                let healAmount = max(1, Int(Double(damage) * combatContext.lifestealPercent))
+            // Ability-specific lifesteal
+            var totalLifesteal = combatContext.lifestealPercent
+            if case .lifesteal(let percent) = ability.effect {
+                totalLifesteal += percent
+            }
+            if totalLifesteal > 0 {
+                let healAmount = max(1, Int(Double(damage) * totalLifesteal))
                 let actualHeal = min(healAmount, state.playerMaxHP - state.playerHP)
                 if actualHeal > 0 {
                     state.playerHP += actualHeal
-                    state.addLogEntry("Lifesteal restores \(actualHeal) HP!", type: .heal)
+                    state.addLogEntry("Drained \(actualHeal) HP!", type: .heal)
                 }
             }
 
@@ -350,60 +419,94 @@ class BattleManager: ObservableObject {
             }
         }
 
+        // Apply ability effect to enemy (excluding lifesteal, handled above)
+        if let effect = ability.effect {
+            applyAbilityEffect(effect, toEnemy: true, abilityName: ability.name)
+        }
+
         state.enemyIsEvading = false
-        state.isPlayerTurn = false
     }
 
-    private func performPlayerDefend() {
+    private func performDefensiveAbility(_ ability: CombatAbility) {
         guard let state = battleState else { return }
 
         state.playerIsDefending = true
-        state.addLogEntry("You take a defensive stance!", type: .playerAction)
-        state.isPlayerTurn = false
+
+        if let effect = ability.effect {
+            switch effect {
+            case .shield(let reduction):
+                state.playerDamageReduction = reduction
+                state.addLogEntry("\(ability.name)! Damage reduced by \(Int(reduction * 100))%.", type: .playerAction)
+            case .reflect(let percent):
+                state.playerDamageReduction = 0.5
+                state.playerReflectPercent = percent
+                state.addLogEntry("\(ability.name)! Reflecting \(Int(percent * 100))% damage.", type: .playerAction)
+            case .heal(let percent):
+                let healAmount = Int(Double(state.playerMaxHP) * percent)
+                let actualHeal = min(healAmount, state.playerMaxHP - state.playerHP)
+                state.playerHP += actualHeal
+                state.addLogEntry("\(ability.name) restores \(actualHeal) HP!", type: .heal)
+            case .regenerate(let value, let turns):
+                let regen = StatusEffect(type: .regenerate, duration: turns, value: value, sourceDescription: ability.name)
+                state.playerStatusEffects.append(regen)
+                state.addLogEntry("\(ability.name)! Regenerating \(value) HP per turn.", type: .heal)
+            case .strengthen(let value, let turns):
+                let buff = StatusEffect(type: .strengthen, duration: turns, value: value, sourceDescription: ability.name)
+                state.playerStatusEffects.append(buff)
+                state.addLogEntry("\(ability.name)! Attack boosted for \(turns) turns.", type: .playerAction)
+            default:
+                state.addLogEntry("You use \(ability.name)!", type: .playerAction)
+            }
+        } else {
+            state.playerDamageReduction = 0.5
+            state.addLogEntry("You use \(ability.name)!", type: .playerAction)
+        }
     }
 
-    private func performPlayerSpecial() {
-        guard let state = battleState, state.playerSpecialReady else { return }
+    private func applyAbilityEffect(_ effect: CombatAbilityEffect, toEnemy: Bool, abilityName: String) {
+        guard let state = battleState else { return }
 
-        let baseDamage = (state.playerAttack + state.playerAttackModifier) * 2
-        let defense = state.enemyIsEvading ? state.enemyDefense * 2 : state.enemyDefense
-        var damage = calculateDamage(attack: baseDamage, defense: defense)
-
-        // Apply damage multiplier from skills
-        damage = Int(Double(damage) * combatContext.damageMultiplier)
-
-        // Crit roll
-        let isCrit = Double.random(in: 0...1) < combatContext.critChance
-        if isCrit { damage = Int(Double(damage) * 1.5) }
-
-        state.enemyHP = max(0, state.enemyHP - damage)
-        state.lastDamageDealt = damage
-        state.totalDamageDealt += damage
-        state.showEnemyDamage = true
-        state.playerSpecialReady = false
-
-        if isCrit {
-            state.addLogEntry("CRITICAL special attack for \(damage) damage!", type: .playerAction)
-        } else {
-            state.addLogEntry("You unleash a powerful special attack for \(damage) damage!", type: .playerAction)
-        }
-
-        // Lifesteal
-        if combatContext.lifestealPercent > 0 {
-            let healAmount = max(1, Int(Double(damage) * combatContext.lifestealPercent))
-            let actualHeal = min(healAmount, state.playerMaxHP - state.playerHP)
-            if actualHeal > 0 {
-                state.playerHP += actualHeal
-                state.addLogEntry("Lifesteal restores \(actualHeal) HP!", type: .heal)
+        switch effect {
+        case .stun(let turns):
+            if toEnemy {
+                let stun = StatusEffect(type: .stun, duration: turns, value: 0, sourceDescription: abilityName)
+                state.enemyStatusEffects.append(stun)
+                state.addLogEntry("\(state.enemyName) is stunned!", type: .playerAction)
             }
+        case .burn(let damage, let turns):
+            if toEnemy {
+                let burn = StatusEffect(type: .burn, duration: turns, value: damage, sourceDescription: abilityName)
+                state.enemyStatusEffects.append(burn)
+                state.addLogEntry("\(state.enemyName) is burning!", type: .playerAction)
+            }
+        case .poison(let damage, let turns):
+            if toEnemy {
+                let poison = StatusEffect(type: .poison, duration: turns, value: damage, sourceDescription: abilityName)
+                state.enemyStatusEffects.append(poison)
+                state.addLogEntry("\(state.enemyName) is poisoned!", type: .playerAction)
+            }
+        case .weaken(let value, let turns):
+            if toEnemy {
+                let debuff = StatusEffect(type: .weaken, duration: turns, value: value, sourceDescription: abilityName)
+                state.enemyStatusEffects.append(debuff)
+                state.addLogEntry("\(state.enemyName) is weakened!", type: .playerAction)
+            }
+        case .bleed(let damage, let turns):
+            if toEnemy {
+                let bleed = StatusEffect(type: .bleed, duration: turns, value: damage, sourceDescription: abilityName)
+                state.enemyStatusEffects.append(bleed)
+                state.addLogEntry("\(state.enemyName) is bleeding!", type: .playerAction)
+            }
+        case .strengthen(let value, let turns):
+            // Self-buff on offensive ability
+            let buff = StatusEffect(type: .strengthen, duration: turns, value: value, sourceDescription: abilityName)
+            state.playerStatusEffects.append(buff)
+            state.addLogEntry("You feel empowered!", type: .playerAction)
+        case .lifesteal:
+            break // handled in performOffensiveAbility
+        case .heal, .shield, .reflect, .regenerate:
+            break // handled in performDefensiveAbility
         }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            state.showEnemyDamage = false
-        }
-
-        state.enemyIsEvading = false
-        state.isPlayerTurn = false
     }
 
     // MARK: - Enemy Turn
@@ -442,15 +545,33 @@ class BattleManager: ObservableObject {
                 state.enemyIsEvading = true
                 state.addLogEntry("\(state.enemyName) uses \(ability.name)! \(ability.description)", type: .enemyAction)
             } else {
-                var effectiveDefense = state.playerIsDefending ? state.playerDefense * 2 : state.playerDefense
+                var effectiveDefense = state.playerDefense
+                // Apply defensive ability reduction
+                if state.playerIsDefending {
+                    let reduction = state.playerDamageReduction > 0 ? state.playerDamageReduction : 0.5
+                    effectiveDefense = Int(Double(effectiveDefense) * (1.0 + reduction))
+                }
                 effectiveDefense = Int(Double(effectiveDefense) * combatContext.defenseMultiplier)
                 let attackPower = ability.damage + state.enemyAttackModifier
-                let damage = calculateDamage(attack: attackPower, defense: effectiveDefense)
+                var damage = calculateDamage(attack: attackPower, defense: effectiveDefense)
+
+                // Apply damage reduction from shield
+                if state.playerIsDefending && state.playerDamageReduction > 0 {
+                    damage = Int(Double(damage) * (1.0 - state.playerDamageReduction))
+                    damage = max(1, damage)
+                }
 
                 state.playerHP = max(0, state.playerHP - damage)
                 state.lastDamageReceived = damage
                 state.showPlayerDamage = true
                 state.addLogEntry("\(state.enemyName) uses \(ability.name) for \(damage) damage!", type: .enemyAction)
+
+                // Reflect damage
+                if state.playerReflectPercent > 0 {
+                    let reflectDamage = max(1, Int(Double(damage) * state.playerReflectPercent))
+                    state.enemyHP = max(0, state.enemyHP - reflectDamage)
+                    state.addLogEntry("Reflected \(reflectDamage) damage!", type: .playerAction)
+                }
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     state.showPlayerDamage = false
@@ -470,15 +591,31 @@ class BattleManager: ObservableObject {
                 }
             }
         } else {
-            var effectiveDefense = state.playerIsDefending ? state.playerDefense * 2 : state.playerDefense
+            var effectiveDefense = state.playerDefense
+            if state.playerIsDefending {
+                let reduction = state.playerDamageReduction > 0 ? state.playerDamageReduction : 0.5
+                effectiveDefense = Int(Double(effectiveDefense) * (1.0 + reduction))
+            }
             effectiveDefense = Int(Double(effectiveDefense) * combatContext.defenseMultiplier)
             let attackPower = state.enemyAttack + state.enemyAttackModifier
-            let damage = calculateDamage(attack: attackPower, defense: effectiveDefense)
+            var damage = calculateDamage(attack: attackPower, defense: effectiveDefense)
+
+            if state.playerIsDefending && state.playerDamageReduction > 0 {
+                damage = Int(Double(damage) * (1.0 - state.playerDamageReduction))
+                damage = max(1, damage)
+            }
 
             state.playerHP = max(0, state.playerHP - damage)
             state.lastDamageReceived = damage
             state.showPlayerDamage = true
             state.addLogEntry("\(state.enemyName) attacks for \(damage) damage!", type: .enemyAction)
+
+            // Reflect damage
+            if state.playerReflectPercent > 0 {
+                let reflectDamage = max(1, Int(Double(damage) * state.playerReflectPercent))
+                state.enemyHP = max(0, state.enemyHP - reflectDamage)
+                state.addLogEntry("Reflected \(reflectDamage) damage!", type: .playerAction)
+            }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 state.showPlayerDamage = false
@@ -487,6 +624,11 @@ class BattleManager: ObservableObject {
 
         if state.playerHP <= 0 {
             handleDefeat()
+            return
+        }
+
+        if state.enemyHP <= 0 {
+            handleVictory()
             return
         }
 
@@ -499,14 +641,9 @@ class BattleManager: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             state.isPlayerTurn = true
             state.playerIsDefending = false
+            state.playerDamageReduction = 0
+            state.playerReflectPercent = 0
             self?.isAnimating = false
-
-            // Special cooldown: base every 6 entries, reduced by skill bonus
-            let cooldownThreshold = max(2, 6 - (self?.combatContext.specialCooldownReduction ?? 0))
-            if !state.playerSpecialReady && state.battleLog.count % cooldownThreshold == 0 {
-                state.playerSpecialReady = true
-                state.addLogEntry("Special attack is ready!", type: .system)
-            }
         }
     }
 
@@ -586,7 +723,7 @@ class BattleManager: ObservableObject {
             }
         }
 
-        // Temporary stat boost → add as Strengthen effect
+        // Temporary stat boost -> add as Strengthen effect
         if let boosts = item.tempStatBoost, let duration = item.tempBoostDuration {
             result.tempBoosts = boosts
             result.boostDuration = duration

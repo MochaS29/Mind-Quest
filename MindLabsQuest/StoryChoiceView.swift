@@ -31,6 +31,8 @@ struct StoryChoiceView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
         .onAppear {
             startDialogue()
         }
@@ -44,12 +46,17 @@ struct StoryChoiceView: View {
     // MARK: - Background
     @ViewBuilder
     private var backgroundView: some View {
-        if let bgImage = node.backgroundImage {
-            Image(bgImage)
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
-                .overlay(Color.black.opacity(0.5))
+        if let bgImage = node.backgroundImage,
+           UIImage(named: bgImage) != nil {
+            GeometryReader { geo in
+                Image(bgImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+                    .overlay(Color.black.opacity(0.5))
+            }
+            .ignoresSafeArea()
         } else {
             LinearGradient(
                 colors: [

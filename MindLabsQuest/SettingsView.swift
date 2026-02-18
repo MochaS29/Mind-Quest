@@ -343,6 +343,7 @@ struct SettingsView: View {
 
                     Button(action: {
                         gameManager.tutorialManager.resetAll()
+                        gameManager.tutorialActive = false
                     }) {
                         HStack {
                             Image(systemName: "questionmark.circle")

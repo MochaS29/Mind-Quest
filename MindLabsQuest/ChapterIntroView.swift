@@ -5,7 +5,7 @@ struct ChapterIntroView: View {
     @EnvironmentObject var gameManager: GameManager
     @Environment(\.dismiss) private var dismiss
 
-    @State private var showBackground = false
+    @State private var showBackground = true
     @State private var showChapterNumber = false
     @State private var showTitle = false
     @State private var showDescription = false
@@ -18,7 +18,6 @@ struct ChapterIntroView: View {
             // Dark background
             Color.black
                 .ignoresSafeArea()
-                .opacity(showBackground ? 1 : 0)
 
             // Particles/stars effect
             if showBackground {
@@ -130,20 +129,13 @@ struct ChapterIntroView: View {
     }
 
     private func startAnimation() {
-        // Background fade in
-        withAnimation(.easeIn(duration: 0.8)) {
-            showBackground = true
-        }
-
         // Chapter number
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            withAnimation(.easeIn(duration: 0.6)) {
-                showChapterNumber = true
-            }
+        withAnimation(.easeIn(duration: 0.4)) {
+            showChapterNumber = true
         }
 
         // Title with scale
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
                 showTitle = true
                 titleScale = 1.0
@@ -151,14 +143,14 @@ struct ChapterIntroView: View {
         }
 
         // Description
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-            withAnimation(.easeIn(duration: 0.5)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            withAnimation(.easeIn(duration: 0.4)) {
                 showDescription = true
             }
         }
 
         // Button
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 showButton = true
             }

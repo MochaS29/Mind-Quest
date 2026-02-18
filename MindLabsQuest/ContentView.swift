@@ -16,7 +16,7 @@ struct ContentView: View {
             .mindLabsTabBar()
             
             // Tutorial overlay
-            if gameManager.tutorialManager.activeTutorial != nil {
+            if gameManager.tutorialActive {
                 TutorialOverlayView()
                     .zIndex(80)
                     .transition(.opacity)

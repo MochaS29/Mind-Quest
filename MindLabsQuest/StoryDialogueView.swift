@@ -134,6 +134,8 @@ struct StoryDialogueView: View {
                 dialogueBox
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
         .onTapGesture {
             handleTap()
         }
@@ -145,24 +147,27 @@ struct StoryDialogueView: View {
     // MARK: - Background
     @ViewBuilder
     private var backgroundView: some View {
-        if let bgImage = node.backgroundImage {
-            // Try to load image, fall back to gradient
-            Image(bgImage)
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
-                .overlay(Color.black.opacity(0.3))
-        } else {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.1, green: 0.1, blue: 0.15),
-                    Color(red: 0.15, green: 0.1, blue: 0.2)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+        GeometryReader { geo in
+            if let bgImage = node.backgroundImage,
+               UIImage(named: bgImage) != nil {
+                Image(bgImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+                    .overlay(Color.black.opacity(0.3))
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.1, green: 0.1, blue: 0.15),
+                        Color(red: 0.15, green: 0.1, blue: 0.2)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
         }
+        .ignoresSafeArea()
     }
 
     // MARK: - Dialogue Box

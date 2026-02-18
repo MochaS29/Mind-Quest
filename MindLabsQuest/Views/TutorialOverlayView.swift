@@ -49,7 +49,7 @@ struct TutorialOverlayView: View {
                         // Buttons
                         HStack(spacing: 15) {
                             Button(action: {
-                                tutorialManager.skipTutorial()
+                                gameManager.skipCurrentTutorial()
                             }) {
                                 Text("Skip")
                                     .font(MindLabsTypography.subheadline())
@@ -62,7 +62,7 @@ struct TutorialOverlayView: View {
 
                             Button(action: {
                                 HapticService.selection()
-                                tutorialManager.advanceStep()
+                                gameManager.advanceTutorialStep()
                             }) {
                                 Text(step.action == .dismiss ? "Got it!" : "Next")
                                     .font(MindLabsTypography.subheadline())

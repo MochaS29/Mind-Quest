@@ -4,11 +4,11 @@ import SwiftUI
 struct MindLabsQuestApp: App {
     @StateObject private var gameManager = GameManager()
     @StateObject private var notificationManager = NotificationManager.shared
-    
+
     var achievementManager: AchievementManager {
         gameManager.achievementManager
     }
-    
+
     var body: some Scene {
         WindowGroup {
             ContentView()
