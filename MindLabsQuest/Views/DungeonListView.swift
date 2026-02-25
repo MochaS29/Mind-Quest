@@ -2,10 +2,19 @@ import SwiftUI
 
 struct DungeonListView: View {
     @EnvironmentObject var gameManager: GameManager
+    var regionId: String? = nil
     @State private var selectedDungeon: Dungeon?
     @State private var showDungeonRun = false
     @State private var showNoEnergy = false
     @State private var showLevelLock = false
+
+    private var filteredDungeons: [Dungeon] {
+        if let rid = regionId {
+            let regionDungeonIds = RegionDatabase.region(byId: rid)?.dungeonIds ?? []
+            return DungeonDatabase.allDungeons.filter { regionDungeonIds.contains($0.id) }
+        }
+        return DungeonDatabase.allDungeons
+    }
 
     var body: some View {
         NavigationView {
@@ -22,7 +31,7 @@ struct DungeonListView: View {
                     }
 
                     // Dungeon list
-                    ForEach(DungeonDatabase.allDungeons) { dungeon in
+                    ForEach(filteredDungeons) { dungeon in
                         dungeonCard(dungeon)
                     }
                 }

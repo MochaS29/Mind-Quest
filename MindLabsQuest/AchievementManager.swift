@@ -138,6 +138,24 @@ class AchievementManager: ObservableObject {
         checkAndUnlock("focus_streak_7", currentValue: focusStreakDays)
     }
 
+    // MARK: - V2: Explorer Achievements
+    func checkMapAchievements(regionsDiscovered: Int, regionsUnlocked: Int) {
+        checkAndUnlock("explore_first", currentValue: regionsDiscovered)
+        checkAndUnlock("explore_5", currentValue: regionsDiscovered)
+        checkAndUnlock("explore_all", currentValue: regionsDiscovered)
+        checkAndUnlock("unlock_5", currentValue: regionsUnlocked)
+        checkAndUnlock("unlock_all", currentValue: regionsUnlocked)
+    }
+
+    // MARK: - V2: Parent Task Achievements
+    func checkParentTaskAchievements(totalCompleted: Int, streakDays: Int, totalEnergyEarned: Int) {
+        checkAndUnlock("parent_task_1", currentValue: totalCompleted)
+        checkAndUnlock("parent_task_25", currentValue: totalCompleted)
+        checkAndUnlock("parent_task_100", currentValue: totalCompleted)
+        checkAndUnlock("parent_task_streak_7", currentValue: streakDays)
+        checkAndUnlock("parent_task_energy_50", currentValue: totalEnergyEarned)
+    }
+
     // MARK: - Core Functions
     private func checkAndUnlock(_ key: String, currentValue: Int) {
         guard let index = achievements.firstIndex(where: { $0.key == key }) else { return }

@@ -36,6 +36,7 @@ struct BattleView: View {
     @State private var attackEffectScale: CGFloat = 0
     @State private var attackEffectRotation: Double = 0
     @State private var attackEffectOpacity: Double = 1
+    @State private var activeVFXEffect: VFXEffect?
 
     @State private var showTurnBanner = false
     @State private var turnBannerText = ""
@@ -86,8 +87,13 @@ struct BattleView: View {
                     .allowsHitTesting(false)
             }
 
-            // Attack effect icon
-            if let icon = attackEffectIcon {
+            // Attack effect icon + VFX
+            if let effect = activeVFXEffect {
+                VFXView(effect: effect) {
+                    activeVFXEffect = nil
+                }
+                .allowsHitTesting(false)
+            } else if let icon = attackEffectIcon {
                 Image(systemName: icon)
                     .font(.system(size: 50))
                     .foregroundColor(.white)
@@ -271,16 +277,10 @@ struct BattleView: View {
                         .padding(.top, 110)
                 }
 
-                Group {
-                    if encounter.enemyAvatar.count > 3 {
-                        Image(encounter.enemyAvatar)
-                            .resizable()
-                            .scaledToFit()
-                    } else {
-                        Text(encounter.enemyAvatar)
-                            .font(.system(size: 40))
-                    }
-                }
+                AssetService.enemyImage(
+                    templateId: encounter.enemyName.lowercased().replacingOccurrences(of: " ", with: "_"),
+                    fallbackEmoji: encounter.enemyAvatar
+                )
                 .frame(width: 80, height: 80)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(Color.red, lineWidth: 2))
@@ -463,8 +463,12 @@ struct BattleView: View {
             // Screen flash
             triggerScreenFlash(.red)
 
-            // Attack effect icon
-            if let icon = abilityIcon {
+            // VFX effect based on ability, with fallback to icon animation
+            if case .ability(let abilityId) = action,
+               let abil = gameManager.character.availableCombatAbilities.first(where: { $0.id == abilityId }) {
+                let vfxId = VFXService.effectIdForIcon(abil.icon)
+                activeVFXEffect = VFXService.resolve(vfxId)
+            } else if let icon = abilityIcon {
                 showAttackEffect(icon)
             }
 

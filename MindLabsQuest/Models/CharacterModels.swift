@@ -254,6 +254,9 @@ struct Character: Codable {
     var prestigeData: PrestigeData = PrestigeData()
     var cosmeticLoadout: CosmeticLoadout = CosmeticLoadout()
 
+    // MARK: - V2: World Map
+    var worldMapProgress: WorldMapProgress = WorldMapProgress()
+
     var modifier: (StatType) -> Int {
         return { stat in
             (self.stats[stat, default: 10] - 10) / 2

@@ -2,18 +2,28 @@ import SwiftUI
 
 struct WorldMapView: View {
     @EnvironmentObject var gameManager: GameManager
+    @State private var selectedRegion: MapRegion?
+    @State private var showRegionDetail = false
     @State private var selectedChapter: StoryChapter?
-    @State private var showUnlockConfirmation = false
-    @State private var chapterToUnlock: StoryChapter?
     @State private var showQuickBattle = false
     @State private var showDungeons = false
     @State private var showArena = false
     @State private var showMerchant = false
+    @State private var showMapMissions = false
+
+    private var regions: [MapRegion] {
+        RegionDatabase.allRegions.map { region in
+            var r = region
+            r.isDiscovered = gameManager.worldMapManager.progress.discoveredRegionIds.contains(region.id)
+            r.isUnlocked = gameManager.worldMapManager.progress.unlockedRegionIds.contains(region.id)
+            return r
+        }
+    }
 
     var body: some View {
         NavigationView {
             ZStack {
-                // Background gradient
+                // Background
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color(red: 0.1, green: 0.1, blue: 0.2),
@@ -25,294 +35,128 @@ struct WorldMapView: View {
                 )
                 .ignoresSafeArea()
 
-                // Stars background
                 StarsBackground()
 
+                // Main map content
                 VStack(spacing: 0) {
-                    // Header with story keys
-                    storyKeyHeader
+                    // Top bar
+                    mapTopBar
 
-                    // Chapter path
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            if gameManager.storyChapters.isEmpty {
-                                Text("Loading story...")
-                                    .foregroundColor(.gray)
-                                    .padding(.top, 50)
+                    // Map scroll area
+                    ScrollView(.vertical, showsIndicators: false) {
+                        ZStack {
+                            // Path connections
+                            GeometryReader { geo in
+                                MapPathView(
+                                    regions: regions,
+                                    unlockedIds: gameManager.worldMapManager.progress.unlockedRegionIds,
+                                    mapSize: geo.size
+                                )
                             }
 
-                            ForEach(Array(gameManager.storyChapters.enumerated()), id: \.element.id) { index, chapter in
-                                VStack(spacing: 0) {
-                                    ChapterNode(
-                                        chapter: chapter,
-                                        isFirst: index == 0,
+                            // Region nodes
+                            GeometryReader { geo in
+                                ForEach(regions, id: \.id) { region in
+                                    RegionNodeView(
+                                        region: region,
+                                        isCurrentRegion: region.id == gameManager.worldMapManager.currentRegionId,
+                                        playerLevel: gameManager.character.level,
+                                        dailyEnergy: gameManager.worldMapManager.energyForRegion(region.id),
+                                        isParentModeEnabled: gameManager.parentTaskManager.settings.isEnabled,
                                         onTap: {
-                                            handleChapterTap(chapter)
-                                        },
-                                        onUnlock: {
-                                            chapterToUnlock = chapter
-                                            showUnlockConfirmation = true
+                                            handleRegionTap(region)
                                         }
                                     )
-                                    .environmentObject(gameManager)
-
-                                    // Path connector (except for last chapter)
-                                    if index < gameManager.storyChapters.count - 1 {
-                                        PathConnector(isUnlocked: chapter.isCompleted)
-                                    }
+                                    .position(
+                                        x: region.position.x * geo.size.width,
+                                        y: region.position.y * geo.size.height
+                                    )
                                 }
                             }
-
-                            // Mystery chapters coming soon
-                            VStack(spacing: 0) {
-                                PathConnector(isUnlocked: false)
-                                MysteryChapterNode()
-                            }
-
-                            // Quick Battle Section
-                            VStack(spacing: 16) {
-                                Divider()
-                                    .background(Color.white.opacity(0.2))
-                                    .padding(.horizontal, 40)
-
-                                Button {
-                                    showQuickBattle = true
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "bolt.fill")
-                                            .font(.title2)
-                                            .foregroundColor(.yellow)
-
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Quick Battle")
-                                                .font(.headline)
-                                                .foregroundColor(.white)
-                                            Text("Test your strength!")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                        }
-
-                                        Spacer()
-
-                                        // Energy display
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "bolt.fill")
-                                                .font(.caption)
-                                                .foregroundColor(.yellow)
-                                            Text("\(gameManager.energyManager.currentEnergy)/\(gameManager.energyManager.maxEnergy)")
-                                                .font(.subheadline.bold())
-                                                .foregroundColor(.white)
-                                        }
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(
-                                            Capsule()
-                                                .fill(Color.yellow.opacity(0.2))
-                                        )
-                                    }
-                                    .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [Color.purple.opacity(0.6), Color.blue.opacity(0.4)],
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
-                                                )
-                                            )
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 16)
-                                                    .stroke(Color.purple.opacity(0.5), lineWidth: 1)
-                                            )
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                .padding(.horizontal, 20)
-
-                                // Dungeons Button
-                                Button {
-                                    showDungeons = true
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "building.columns.fill")
-                                            .font(.title2)
-                                            .foregroundColor(.orange)
-
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Dungeons")
-                                                .font(.headline)
-                                                .foregroundColor(.white)
-                                            Text("Multi-floor challenges await!")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                        }
-
-                                        Spacer()
-
-                                        if gameManager.dungeonRunManager.isRunActive {
-                                            Text("IN PROGRESS")
-                                                .font(.caption2.bold())
-                                                .foregroundColor(.orange)
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 4)
-                                                .background(
-                                                    Capsule()
-                                                        .fill(Color.orange.opacity(0.2))
-                                                )
-                                        } else {
-                                            Image(systemName: "chevron.right")
-                                                .foregroundColor(.gray)
-                                        }
-                                    }
-                                    .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [Color.orange.opacity(0.5), Color.red.opacity(0.3)],
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
-                                                )
-                                            )
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 16)
-                                                    .stroke(Color.orange.opacity(0.4), lineWidth: 1)
-                                            )
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                .padding(.horizontal, 20)
-
-                                // Arena Button
-                                Button {
-                                    showArena = true
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "person.2.fill")
-                                            .font(.title2)
-                                            .foregroundColor(.red)
-
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("PvP Arena")
-                                                .font(.headline)
-                                                .foregroundColor(.white)
-                                            Text("Battle opponents, climb the ranks!")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                        }
-
-                                        Spacer()
-
-                                        HStack(spacing: 4) {
-                                            Text(gameManager.arenaManager.stats.rank.emoji)
-                                            Text("\(gameManager.arenaManager.stats.rating)")
-                                                .font(.subheadline.bold())
-                                                .foregroundColor(.white)
-                                        }
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(
-                                            Capsule()
-                                                .fill(Color.red.opacity(0.2))
-                                        )
-                                    }
-                                    .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [Color.red.opacity(0.5), Color.orange.opacity(0.3)],
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
-                                                )
-                                            )
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 16)
-                                                    .stroke(Color.red.opacity(0.4), lineWidth: 1)
-                                            )
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                .padding(.horizontal, 20)
-
-                                // Traveling Merchant Button (only when present)
-                                if gameManager.merchantManager.state.isPresent {
-                                    Button {
-                                        showMerchant = true
-                                    } label: {
-                                        HStack(spacing: 12) {
-                                            Image(systemName: "cart.fill")
-                                                .font(.title2)
-                                                .foregroundColor(.teal)
-
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text("Traveling Merchant")
-                                                    .font(.headline)
-                                                    .foregroundColor(.white)
-                                                Text(gameManager.merchantManager.state.merchantName)
-                                                    .font(.caption)
-                                                    .foregroundColor(.gray)
-                                            }
-
-                                            Spacer()
-
-                                            let daysLeft = gameManager.merchantManager.state.daysUntilDeparture
-                                            Text("Departs in \(daysLeft)d")
-                                                .font(.caption.bold())
-                                                .foregroundColor(.teal)
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 4)
-                                                .background(
-                                                    Capsule()
-                                                        .fill(Color.teal.opacity(0.2))
-                                                )
-                                        }
-                                        .padding()
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 16)
-                                                .fill(
-                                                    LinearGradient(
-                                                        colors: [Color.teal.opacity(0.5), Color.green.opacity(0.3)],
-                                                        startPoint: .leading,
-                                                        endPoint: .trailing
-                                                    )
-                                                )
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 16)
-                                                        .stroke(Color.teal.opacity(0.4), lineWidth: 1)
-                                                )
-                                        )
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
-                                    .padding(.horizontal, 20)
-                                }
-                            }
-                            .padding(.top, 20)
                         }
-                        .padding(.vertical, 20)
+                        .frame(height: UIScreen.main.bounds.height * 1.2)
+
+                        // Activity buttons below the map
+                        VStack(spacing: 12) {
+                            Divider()
+                                .background(Color.white.opacity(0.2))
+                                .padding(.horizontal, 40)
+
+                            // Arena Button
+                            activityButton(
+                                icon: "person.2.fill",
+                                iconColor: .red,
+                                title: "PvP Arena",
+                                subtitle: "Battle opponents, climb the ranks!",
+                                trailingContent: AnyView(
+                                    HStack(spacing: 4) {
+                                        Text(gameManager.arenaManager.stats.rank.emoji)
+                                        Text("\(gameManager.arenaManager.stats.rating)")
+                                            .font(.subheadline.bold())
+                                            .foregroundColor(.white)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(Capsule().fill(Color.red.opacity(0.2)))
+                                ),
+                                gradientColors: [Color.red.opacity(0.5), Color.orange.opacity(0.3)],
+                                borderColor: Color.red.opacity(0.4)
+                            ) {
+                                showArena = true
+                            }
+
+                            // Traveling Merchant
+                            if gameManager.merchantManager.state.isPresent {
+                                let daysLeft = gameManager.merchantManager.state.daysUntilDeparture
+                                activityButton(
+                                    icon: "cart.fill",
+                                    iconColor: .teal,
+                                    title: "Traveling Merchant",
+                                    subtitle: gameManager.merchantManager.state.merchantName,
+                                    trailingContent: AnyView(
+                                        Text("Departs in \(daysLeft)d")
+                                            .font(.caption.bold())
+                                            .foregroundColor(.teal)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Capsule().fill(Color.teal.opacity(0.2)))
+                                    ),
+                                    gradientColors: [Color.teal.opacity(0.5), Color.green.opacity(0.3)],
+                                    borderColor: Color.teal.opacity(0.4)
+                                ) {
+                                    showMerchant = true
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 30)
                     }
+                }
+
+                // Gate overlay
+                if !gameManager.isGameAccessible {
+                    GateOverlayView()
+                        .environmentObject(gameManager)
                 }
             }
             .navigationTitle("Adventure")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("Adventure")
+                    Text("Aethermoor")
                         .font(.headline)
                         .foregroundColor(.white)
                 }
             }
         }
+        .sheet(isPresented: $showRegionDetail) {
+            if let region = selectedRegion {
+                RegionDetailView(region: region)
+                    .environmentObject(gameManager)
+            }
+        }
         .fullScreenCover(item: $selectedChapter) { chapter in
             ChapterIntroView(chapter: chapter)
-                .environmentObject(gameManager)
-        }
-        .fullScreenCover(isPresented: $showQuickBattle) {
-            QuickBattleView()
-                .environmentObject(gameManager)
-        }
-        .sheet(isPresented: $showDungeons) {
-            DungeonListView()
                 .environmentObject(gameManager)
         }
         .fullScreenCover(isPresented: $showArena) {
@@ -323,20 +167,11 @@ struct WorldMapView: View {
             TravelingMerchantView()
                 .environmentObject(gameManager)
         }
-        .alert("Unlock Chapter?", isPresented: $showUnlockConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Unlock") {
-                if let chapter = chapterToUnlock {
-                    _ = gameManager.unlockChapter(chapter.id)
-                }
-            }
-        } message: {
-            if let chapter = chapterToUnlock {
-                Text("Spend \(chapter.unlockRequirements.tasksRequired) Story Keys to unlock \"\(chapter.title)\"?")
-            }
+        .sheet(isPresented: $showMapMissions) {
+            MapMissionView()
+                .environmentObject(gameManager)
         }
         .overlay(
-            // Story key earned notification
             Group {
                 if gameManager.showStoryKeyEarned {
                     StoryKeyEarnedBanner()
@@ -347,244 +182,119 @@ struct WorldMapView: View {
         )
     }
 
-    // MARK: - Story Key Header
-    private var storyKeyHeader: some View {
-        HStack {
-            Spacer()
+    // MARK: - Top Bar
 
-            HStack(spacing: 8) {
+    private var mapTopBar: some View {
+        HStack(spacing: 12) {
+            // Story keys
+            HStack(spacing: 6) {
                 Image(systemName: "key.fill")
                     .foregroundColor(.yellow)
-                    .font(.title2)
-
                 Text("\(gameManager.storyProgress.storyKeys)")
-                    .font(.title2.bold())
+                    .font(.subheadline.bold())
                     .foregroundColor(.white)
-
-                Text("Story Keys")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 20)
+                Capsule()
                     .fill(Color.black.opacity(0.4))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.yellow.opacity(0.3), lineWidth: 1)
-                    )
+                    .overlay(Capsule().stroke(Color.yellow.opacity(0.3), lineWidth: 1))
             )
 
             Spacer()
-        }
-        .padding(.top, 10)
-        .padding(.bottom, 20)
-    }
 
-    // MARK: - Handle Chapter Tap
-    private func handleChapterTap(_ chapter: StoryChapter) {
-        if chapter.isUnlocked {
-            selectedChapter = chapter
-        }
-    }
-}
-
-// MARK: - Chapter Node
-struct ChapterNode: View {
-    let chapter: StoryChapter
-    let isFirst: Bool
-    let onTap: () -> Void
-    let onUnlock: () -> Void
-    @EnvironmentObject var gameManager: GameManager
-
-    @State private var isGlowing = false
-
-    var body: some View {
-        Button(action: {
-            if chapter.isUnlocked {
-                onTap()
-            } else if gameManager.canUnlockChapter(chapter.id) {
-                onUnlock()
-            }
-        }) {
-            VStack(spacing: 12) {
-                // Chapter circle
-                ZStack {
-                    // Outer glow for unlocked chapters
-                    if chapter.isUnlocked && !chapter.isCompleted {
-                        Circle()
-                            .fill(Color.purple.opacity(0.3))
-                            .frame(width: 100, height: 100)
-                            .blur(radius: 10)
-                            .scaleEffect(isGlowing ? 1.1 : 1.0)
+            // Map missions badge (if parent mode enabled)
+            if gameManager.parentTaskManager.settings.isEnabled {
+                let pending = gameManager.parentTaskManager.todaysPendingTasks.count
+                Button {
+                    showMapMissions = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "scroll.fill")
+                            .foregroundColor(.orange)
+                        Text("Missions")
+                            .font(.caption.bold())
+                            .foregroundColor(.white)
+                        if pending > 0 {
+                            Text("\(pending)")
+                                .font(.caption2.bold())
+                                .foregroundColor(.white)
+                                .frame(width: 18, height: 18)
+                                .background(Circle().fill(Color.red))
+                        }
                     }
-
-                    // Main circle
-                    Circle()
-                        .fill(circleGradient)
-                        .frame(width: 80, height: 80)
-                        .overlay(
-                            Circle()
-                                .stroke(borderColor, lineWidth: 3)
-                        )
-                        .shadow(color: shadowColor, radius: 10)
-
-                    // Icon
-                    chapterIcon
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(Color.black.opacity(0.4))
+                            .overlay(Capsule().stroke(Color.orange.opacity(0.3), lineWidth: 1))
+                    )
                 }
+            }
 
-                // Chapter info
-                VStack(spacing: 4) {
-                    Text(chapter.title)
+            // Energy display
+            HStack(spacing: 6) {
+                Image(systemName: "bolt.fill")
+                    .foregroundColor(.yellow)
+                Text("\(gameManager.energyManager.currentEnergy)/\(gameManager.energyManager.maxEnergy)")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(Color.black.opacity(0.4))
+                    .overlay(Capsule().stroke(Color.yellow.opacity(0.2), lineWidth: 1))
+            )
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+    }
+
+    // MARK: - Activity Button
+
+    private func activityButton(icon: String, iconColor: Color, title: String, subtitle: String, trailingContent: AnyView, gradientColors: [Color], borderColor: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(iconColor)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
                         .font(.headline)
-                        .foregroundColor(chapter.isUnlocked ? .white : .gray)
-
-                    if chapter.isCompleted {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("COMPLETED")
-                        }
-                        .font(.caption.bold())
-                        .foregroundColor(.green)
-                    } else if chapter.isUnlocked {
-                        Text("Tap to play")
-                            .font(.caption)
-                            .foregroundColor(.purple)
-                    } else {
-                        let keysNeeded = gameManager.keysNeededForChapter(chapter.id)
-                        if keysNeeded > 0 {
-                            HStack(spacing: 4) {
-                                Image(systemName: "lock.fill")
-                                Text("Need \(keysNeeded) more keys")
-                            }
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        } else if gameManager.canUnlockChapter(chapter.id) {
-                            Text("Tap to unlock!")
-                                .font(.caption.bold())
-                                .foregroundColor(.yellow)
-                        } else {
-                            Text("Complete previous chapter")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                    }
+                        .foregroundColor(.white)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(.gray)
                 }
+
+                Spacer()
+
+                trailingContent
             }
-            .padding(.vertical, 10)
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(LinearGradient(colors: gradientColors, startPoint: .leading, endPoint: .trailing))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(borderColor, lineWidth: 1))
+            )
         }
         .buttonStyle(PlainButtonStyle())
-        .onAppear {
-            if chapter.isUnlocked && !chapter.isCompleted {
-                withAnimation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                    isGlowing = true
-                }
-            }
-        }
     }
 
-    private var circleGradient: LinearGradient {
-        if chapter.isCompleted {
-            return LinearGradient(
-                colors: [Color.green.opacity(0.8), Color.green.opacity(0.4)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else if chapter.isUnlocked {
-            return LinearGradient(
-                colors: [Color.purple.opacity(0.8), Color.blue.opacity(0.6)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else {
-            return LinearGradient(
-                colors: [Color.gray.opacity(0.4), Color.gray.opacity(0.2)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+    // MARK: - Region Tap Handler
+
+    private func handleRegionTap(_ region: MapRegion) {
+        if region.isUnlocked {
+            gameManager.worldMapManager.currentRegionId = region.id
+            selectedRegion = region
+            showRegionDetail = true
         }
-    }
-
-    private var borderColor: Color {
-        if chapter.isCompleted {
-            return .green
-        } else if chapter.isUnlocked {
-            return .purple
-        } else if gameManager.canUnlockChapter(chapter.id) {
-            return .yellow
-        } else {
-            return .gray.opacity(0.5)
-        }
-    }
-
-    private var shadowColor: Color {
-        if chapter.isCompleted {
-            return .green.opacity(0.5)
-        } else if chapter.isUnlocked {
-            return .purple.opacity(0.5)
-        } else {
-            return .clear
-        }
-    }
-
-    @ViewBuilder
-    private var chapterIcon: some View {
-        if chapter.isCompleted {
-            Image(systemName: "checkmark")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundColor(.white)
-        } else if chapter.isUnlocked {
-            Image(systemName: "play.fill")
-                .font(.system(size: 24))
-                .foregroundColor(.white)
-        } else {
-            Image(systemName: "lock.fill")
-                .font(.system(size: 24))
-                .foregroundColor(.gray)
-        }
-    }
-}
-
-// MARK: - Path Connector
-struct PathConnector: View {
-    let isUnlocked: Bool
-
-    var body: some View {
-        VStack(spacing: 4) {
-            ForEach(0..<3, id: \.self) { _ in
-                Circle()
-                    .fill(isUnlocked ? Color.green.opacity(0.6) : Color.gray.opacity(0.3))
-                    .frame(width: 8, height: 8)
-            }
-        }
-        .frame(height: 40)
-    }
-}
-
-// MARK: - Mystery Chapter Node
-struct MysteryChapterNode: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 80, height: 80)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.gray.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [5]))
-                    )
-
-                Text("???")
-                    .font(.title)
-                    .foregroundColor(.gray)
-            }
-
-            Text("More chapters coming soon...")
-                .font(.caption)
-                .foregroundColor(.gray.opacity(0.6))
-        }
-        .padding(.vertical, 10)
     }
 }
 

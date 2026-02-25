@@ -3,6 +3,7 @@ import SwiftUI
 struct QuickBattleView: View {
     @EnvironmentObject var gameManager: GameManager
     @Environment(\.dismiss) var dismiss
+    var regionId: String? = nil
 
     @State private var encounter: BattleEncounter?
     @State private var showBattle = false
@@ -236,7 +237,13 @@ struct QuickBattleView: View {
             gameManager.energyManager.syncToCharacter(&gameManager.character)
             gameManager.saveData()
 
-            encounter = gameManager.encounterManager.generateEncounter(playerLevel: gameManager.character.level)
+            let level = gameManager.character.level
+            if let rid = regionId,
+               let template = RegionDatabase.enemies(forRegion: rid, playerLevel: level).randomElement() {
+                encounter = template.encounter(atLevel: level)
+            } else {
+                encounter = gameManager.encounterManager.generateEncounter(playerLevel: level)
+            }
             isSearching = false
         }
     }

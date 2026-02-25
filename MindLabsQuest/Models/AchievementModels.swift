@@ -69,6 +69,8 @@ struct Achievement: Identifiable, Codable {
         case economy = "Economy"
         case dedication = "Dedication"
         case seasonal = "Seasonal"
+        case explorer = "Explorer"
+        case parentTasks = "Parent Tasks"
 
         var color: Color {
             switch self {
@@ -85,6 +87,8 @@ struct Achievement: Identifiable, Codable {
             case .economy: return Color(red: 1.0, green: 0.84, blue: 0.0)
             case .dedication: return .mint
             case .seasonal: return .pink
+            case .explorer: return Color(red: 0.2, green: 0.7, blue: 0.5)
+            case .parentTasks: return .orange
             }
         }
     }
@@ -197,7 +201,21 @@ extension Achievement {
         Achievement(key: "focus_25_sessions", title: "Focus Journeyman", description: "Complete 25 focus sessions", icon: "🎯", requiredValue: 25, category: .focus, tier: .silver, reward: .forTier(.silver)),
         Achievement(key: "focus_120_min", title: "Marathon Focus", description: "Complete a 120-minute session", icon: "🧘", requiredValue: 120, category: .focus, tier: .gold, reward: .forTier(.gold)),
         Achievement(key: "focus_streak_7", title: "Focus Streak", description: "Focus 7 days in a row", icon: "🔥", requiredValue: 7, category: .focus, tier: .silver, reward: .forTier(.silver)),
-        Achievement(key: "focus_total_5000", title: "Total Dedication", description: "Focus for 5000 minutes total", icon: "🧘‍♂️", requiredValue: 5000, category: .focus, tier: .platinum, reward: .forTier(.platinum))
+        Achievement(key: "focus_total_5000", title: "Total Dedication", description: "Focus for 5000 minutes total", icon: "🧘‍♂️", requiredValue: 5000, category: .focus, tier: .platinum, reward: .forTier(.platinum)),
+
+        // MARK: - Explorer Achievements (V2 - 5)
+        Achievement(key: "explore_first", title: "First Steps", description: "Discover your first new region", icon: "🗺️", requiredValue: 2, category: .explorer, tier: .bronze, reward: .forTier(.bronze)),
+        Achievement(key: "explore_5", title: "Cartographer", description: "Discover 5 regions", icon: "🧭", requiredValue: 5, category: .explorer, tier: .silver, reward: .forTier(.silver)),
+        Achievement(key: "explore_all", title: "World Traveler", description: "Discover all 11 regions", icon: "🌍", requiredValue: 11, category: .explorer, tier: .gold, reward: .forTier(.gold)),
+        Achievement(key: "unlock_5", title: "Path Opener", description: "Unlock 5 regions", icon: "🔓", requiredValue: 5, category: .explorer, tier: .silver, reward: .forTier(.silver)),
+        Achievement(key: "unlock_all", title: "Master Explorer", description: "Unlock all 11 regions", icon: "🏔️", requiredValue: 11, category: .explorer, tier: .platinum, reward: AchievementReward(gold: 100, xp: 100, cosmeticId: "title_world_explorer")),
+
+        // MARK: - Parent Task Achievements (V2 - 5)
+        Achievement(key: "parent_task_1", title: "Good Citizen", description: "Complete your first parent task", icon: "✅", requiredValue: 1, category: .parentTasks, tier: .bronze, reward: .forTier(.bronze)),
+        Achievement(key: "parent_task_25", title: "Dedicated Helper", description: "Complete 25 parent tasks", icon: "🌟", requiredValue: 25, category: .parentTasks, tier: .silver, reward: .forTier(.silver)),
+        Achievement(key: "parent_task_100", title: "Family Hero", description: "Complete 100 parent tasks", icon: "🏆", requiredValue: 100, category: .parentTasks, tier: .gold, reward: .forTier(.gold)),
+        Achievement(key: "parent_task_streak_7", title: "Golden Child", description: "Complete all daily tasks for 7 days straight", icon: "👑", requiredValue: 7, category: .parentTasks, tier: .gold, reward: .forTier(.gold)),
+        Achievement(key: "parent_task_energy_50", title: "Energy Master", description: "Earn 50 travel energy from tasks", icon: "⚡", requiredValue: 50, category: .parentTasks, tier: .silver, reward: .forTier(.silver))
     ]
 }
 

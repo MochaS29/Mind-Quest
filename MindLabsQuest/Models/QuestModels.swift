@@ -97,6 +97,7 @@ struct Quest: Identifiable, Codable {
     var actualTimeSpent: Int = 0
     var startedAt: Date?
     var timeSpentSessions: [TimeSession] = []
+    var parentTaskId: UUID? = nil
 
     var xpReward: Int {
         if let template = questTemplate {

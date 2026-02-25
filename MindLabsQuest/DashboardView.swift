@@ -6,7 +6,8 @@ struct DashboardView: View {
     @State private var showPredeterminedQuestSheet = false
     @State private var selectedCategory: TaskCategory? = nil
     @State private var showSeasonalEvent = false
-    
+    @State private var showMapMissions = false
+
     var body: some View {
         NavigationView {
             ScrollView {
@@ -21,6 +22,11 @@ struct DashboardView: View {
 
                     // Daily Progress
                     DailyProgressCard()
+
+                    // Parent Task Missions (if enabled)
+                    if gameManager.parentTaskManager.settings.isEnabled {
+                        ParentTasksCard(showMapMissions: $showMapMissions)
+                    }
 
                     // Daily Challenges
                     DailyChallengesCard()
@@ -65,6 +71,108 @@ struct DashboardView: View {
         .sheet(isPresented: $showSeasonalEvent) {
             SeasonalEventView()
         }
+        .sheet(isPresented: $showMapMissions) {
+            MapMissionView()
+        }
+    }
+}
+
+struct ParentTasksCard: View {
+    @EnvironmentObject var gameManager: GameManager
+    @Binding var showMapMissions: Bool
+
+    private var manager: ParentTaskManager {
+        gameManager.parentTaskManager
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "map.fill")
+                    .foregroundColor(.orange)
+                Text("Map Missions")
+                    .font(MindLabsTypography.headline())
+                    .foregroundColor(.white)
+                Spacer()
+
+                let progress = manager.gateProgress
+                Text("\(progress.completed)/\(progress.required)")
+                    .font(MindLabsTypography.caption())
+                    .foregroundColor(.white.opacity(0.8))
+            }
+
+            // Progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.3))
+                        .frame(height: 10)
+                        .cornerRadius(5)
+
+                    let progress = manager.gateProgress
+                    let fraction = progress.required > 0 ? CGFloat(progress.completed) / CGFloat(progress.required) : 0
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [.orange, .yellow],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geo.size.width * min(fraction, 1.0), height: 10)
+                        .cornerRadius(5)
+                }
+            }
+            .frame(height: 10)
+
+            // Pending tasks preview
+            let pending = manager.todaysPendingTasks.prefix(3)
+            ForEach(Array(pending), id: \.id) { task in
+                HStack(spacing: 8) {
+                    Text(task.category.icon)
+                        .font(.caption)
+
+                    Text(task.epicTitle ?? task.title)
+                        .font(MindLabsTypography.caption())
+                        .foregroundColor(.white.opacity(0.9))
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    if let regionId = task.mapRegionId, let region = RegionDatabase.region(byId: regionId) {
+                        Image(systemName: region.icon)
+                            .font(.caption2)
+                            .foregroundColor(region.biome.primaryColor)
+                    }
+                }
+            }
+
+            Button(action: { showMapMissions = true }) {
+                HStack {
+                    Text("View All Missions")
+                        .font(MindLabsTypography.caption())
+                        .bold()
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.2))
+                .cornerRadius(8)
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding()
+        .background(
+            LinearGradient(
+                colors: [Color.orange.opacity(0.8), Color.orange.opacity(0.6)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(15)
+        .mindLabsCardShadow()
     }
 }
 

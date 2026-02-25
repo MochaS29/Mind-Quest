@@ -158,6 +158,7 @@ struct EnemyTemplate: Identifiable, Codable {
     var element: ElementalType = .physical
     var abilities: [EnemyAbility]
     var lootTable: LootTable
+    var imageAssetName: String? = nil
 
     func encounter(atLevel level: Int) -> BattleEncounter {
         let scaleFactor = 1.0 + Double(level - levelRange.lowerBound) * 0.1

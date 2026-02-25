@@ -57,6 +57,10 @@ class GameManager: ObservableObject {
     let seasonalEventManager = SeasonalEventManager()
     let tutorialManager = TutorialManager()
 
+    // MARK: - V2 Managers
+    let parentTaskManager = ParentTaskManager()
+    let worldMapManager = WorldMapManager()
+
     enum AppView {
         case characterCreation
         case dashboard
@@ -73,6 +77,7 @@ class GameManager: ObservableObject {
         case adventure
         case inventory
         case shop
+        case worldMap
     }
 
     init() {
@@ -84,6 +89,13 @@ class GameManager: ObservableObject {
         checkAndRefreshDailyQuests()
         checkAndUpdateStreak()
         loadStoryContent()
+
+        // V2 init
+        parentTaskManager.loadData()
+        worldMapManager.loadData()
+        parentTaskManager.refreshDailyIfNeeded()
+        worldMapManager.resetDailyEnergyIfNeeded()
+        worldMapManager.checkAutoUnlocks(playerLevel: character.level)
 
         // Phase 5 init
         seasonalEventManager.refreshEvent()
@@ -537,6 +549,48 @@ class GameManager: ObservableObject {
         saveData()
     }
 
+    // MARK: - V2: Parent Task Completion
+    var isGameAccessible: Bool {
+        !parentTaskManager.settings.isEnabled || !parentTaskManager.isGameGated
+    }
+
+    func completeParentTask(_ taskId: UUID) {
+        guard let result = parentTaskManager.completeTask(taskId) else { return }
+
+        // Grant map energy
+        if let regionId = result.regionId {
+            worldMapManager.grantDailyAccess(regionId: regionId, energy: result.energyEarned)
+        }
+
+        // Award bonus XP/gold
+        if result.bonusXP > 0 {
+            character.xp += result.bonusXP
+            while character.xp >= character.xpToNext {
+                levelUp()
+            }
+        }
+        if result.bonusGold > 0 {
+            character.gold += result.bonusGold
+        }
+
+        // V2: Check parent task achievements
+        let totalCompleted = parentTaskManager.tasks.filter { $0.isCompleted }.count
+        let totalEnergy = parentTaskManager.dailyProgress.travelEnergyEarned.values.reduce(0, +)
+        achievementManager.checkParentTaskAchievements(
+            totalCompleted: totalCompleted,
+            streakDays: parentTaskManager.dailyProgress.taskStreakDays,
+            totalEnergyEarned: totalEnergy
+        )
+
+        // V2: Check map achievements after energy grant
+        achievementManager.checkMapAchievements(
+            regionsDiscovered: worldMapManager.progress.discoveredRegionIds.count,
+            regionsUnlocked: worldMapManager.progress.unlockedRegionIds.count
+        )
+
+        saveData()
+    }
+
     // MARK: - Routine Management
     func addRoutine(_ routine: Routine) {
         routines.append(routine)
@@ -650,6 +704,10 @@ class GameManager: ObservableObject {
         cosmeticsManager.saveData()
         seasonalEventManager.saveData()
         tutorialManager.saveData()
+
+        // V2 managers
+        parentTaskManager.saveData()
+        worldMapManager.saveData()
     }
 
     private func loadData() {
@@ -879,6 +937,10 @@ class GameManager: ObservableObject {
         seasonalEventManager.resetAll()
         tutorialManager.resetAll()
         tutorialActive = false
+
+        // V2 resets
+        parentTaskManager.resetAll()
+        worldMapManager.resetAll()
 
         loadStoryContent()
     }

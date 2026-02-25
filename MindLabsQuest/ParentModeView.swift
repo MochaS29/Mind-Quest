@@ -135,19 +135,22 @@ struct ParentDashboardView: View {
         VStack {
             // Tab selector
             Picker("", selection: $selectedTab) {
-                Text("Rewards").tag(0)
-                Text("Progress").tag(1)
-                Text("Settings").tag(2)
+                Text("Tasks").tag(0)
+                Text("Rewards").tag(1)
+                Text("Progress").tag(2)
+                Text("Settings").tag(3)
             }
             .pickerStyle(SegmentedPickerStyle())
             .padding()
-            
+
             switch selectedTab {
             case 0:
-                ParentRewardsView()
+                ParentTaskListView()
             case 1:
-                ParentProgressView()
+                ParentRewardsView()
             case 2:
+                ParentProgressView()
+            case 3:
                 ParentSettingsView()
             default:
                 EmptyView()
