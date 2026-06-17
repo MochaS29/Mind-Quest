@@ -33,22 +33,26 @@ a world map, battles, skill trees, parent-assigned tasks, and rewards drive enga
 - **No backend** in v1 — no Supabase, no web server, no payments SDK. Self-contained on-device.
 - Bundle ID: `com.mocha.MindLabsQuest2024`.
 
-## Layout (this repo is multi-artifact — the iOS app is the live one)
+## Layout
 
 ```
+README.md                    human-facing entry point
+CLAUDE.md                    this brief
 MindLabsQuest.xcodeproj      Xcode project (auto-syncs files via PBXFileSystemSynchronizedRootGroup)
 MindLabsQuest/               SwiftUI source — Models/ Content/ Managers/ Services/ Views/ Protocols/
-MindLabsQuestTests/ UITests/ test targets
-DESIGN_DOC.md                V2 design (world map + parent tasks + assets) — Notion-ready
-MINDQUEST_README.md          project readme
-map_prototype.html           interactive world-map prototype
-MindLabsQuestSwiftUI/, MindLabsQuestAndroid/, MindQuestApp/  older / alternate ports (not the live app)
-mindquest-pm-agent/          PM automation agent (separate Python tool)
-docker/, docker-compose*.yml  for the pm-agent / web prototype, NOT the iOS app
+Assets.xcassets/             root asset catalog (app icon, shared assets)
+MindLabsQuestTests/          unit tests
+MindLabsQuestUITests/        UI tests
+docs/                        living docs — DESIGN_DOC.md (V2 design), map_prototype.html (world-map prototype)
+mindquest-pm-agent/          separate Python PM-automation tool (not the iOS app)
 ```
 
-Architecture detail (managers, content databases, story system) is large — see `DESIGN_DOC.md` and
-the `MindLabsQuest/` source groups rather than duplicating it here.
+> Stale alternate ports (SwiftUI dup, Android stub, React Native), the web/docker prototype, and old
+> scaffold docs were archived to branch **`archive/pre-cleanup-2026-06-17`** (Jun 17 2026) and removed
+> from `main`. Restore from that branch if ever needed.
+
+Architecture detail (managers, content databases, story system) is large — see `docs/DESIGN_DOC.md`
+and the `MindLabsQuest/` source groups rather than duplicating it here.
 
 ## Build / run
 
